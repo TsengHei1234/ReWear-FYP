@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy this to supabase.local.json (gitignored) and fill in. Run the app with: flutter run --dart-define-from-file=config/supabase.local.json",
+  "SUPABASE_URL": "https://YOUR_PROJECT_REF.supabase.co",
+  "SUPABASE_ANON_KEY": "sb_publishable_xxx"
+}

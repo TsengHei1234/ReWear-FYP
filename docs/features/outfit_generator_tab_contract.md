@@ -1,0 +1,47 @@
+# Contract — Outfit Generator Tab (UI, Phase 6 Step 3)
+
+**Sources:** FE §23 (UI authority), §6.17/§6.18/§38, RE "Outfit Generator — Full
+Behaviour" + the built `engine/outfit/generator_session.dart` & `outfit_explanation.dart`.
+**Session lifecycle:** see **DECISIONS.md G1** (user override of RE — pinned protects
+the session). **Location:** `lib/features/outfit/` (replaces `_GeneratorPlaceholder`).
+
+## State / provider
+Driven by `outfitGeneratorProvider` (Step 1, reworked per G1). The tab is a thin
+`ConsumerWidget` reading `OutfitGeneratorState` and calling notifier methods. No new provider.
+
+## New PURE logic (TDD)
+`buildExplanationForOutfit(...)` in `engine/outfit/outfit_explanation.dart`: re-runs
+`scoreItem` per outfit item → `OutfitItemScores` → calls existing `buildOutfitExplanation`.
+Inputs: outfit, full wardrobe (for categoryActiveCount), mode, preferred/disliked colours,
+FormalityResult, colourScore, displayScore, occasion, pinnedItem, now. Reused by Step 4.
+
+## UI (FE §23), top→bottom
+- **OCCASION** label + chips: Casual · Work · Active · Relax (NO "All"), single-select,
+  default **Casual**. When pinned, chips limited to the pin's `occasion_tags`; if the
+  current occasion isn't supported by a new pin, snap to the pin's first supported one.
+- **LAYERS** label + chips: Top · Bottom **locked** (always-on, lock icon, non-tappable)
+  + Outerwear · Shoes **toggles** → `requireOuterwear`/`requireShoes`. When pinned, the
+  pin's own layer is locked-on too (cannot toggle off until pin cleared).
+- **Pinned strip** (only if `pinnedItem != null`): 36px thumb + PINNED badge + name + ✕
+  (✕ → `clearPin()`, which resets the session).
+- **Generate/Regenerate**: before first gen → primary "Generate Outfit" (`generate()`).
+  After gen → outlined "Regenerate" (`regenerate()`) + "Generated Outfits" divider + cards.
+- **3 result cards**: top row = score pill (FE §6.18 dark-green) + occasion chip +
+  "?" circle (→ Quick Why sheet, lists `whyReasons`); thumbnails row (2→80 / 3→66 / 4→58px);
+  one-line reason tag (occasion + first why reason). Whole card → Outfit Detail (Step 4 stub).
+
+## Behaviours (per DECISIONS.md G1)
+- Generate is synchronous (pure) → render instantly; spinner only while wardrobe/profile load.
+- **Failure** (`state.failureMessage`: empty pool / P1a / pinned-formality) → inline message
+  card in place of cards (not a snackbar).
+- **Filter change orchestration (UI layer):**
+  - Pinned → call `setOccasion`/`setRequireX` only (no reset); outfits stay; applies on Regenerate.
+  - No-pin + `hasGenerated` → confirm sheet "This will clear your generated outfits. Continue?"
+    Confirm = setX + `regenerate()`; Cancel = revert chip (don't call setX).
+  - No-pin + not generated → setX only.
+- Provider auto-clears + clears pin on any real wardrobe mutation (G1); Generator Skip
+  preserves (Step 1 `_preserveSessionOnce`).
+
+## Deferred to Step 4 (snackbar stub now)
+- Card-tap → Outfit Detail screen; Skip Item / Skip Outfit (live in Outfit Detail; provider
+  `skip` stays unused until then). Outfit Log Wear (ends session) also lands with Step 4.
