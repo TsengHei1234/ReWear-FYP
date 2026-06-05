@@ -285,7 +285,13 @@ class _SuggestionCard extends ConsumerWidget {
                         color: const Color(0xFFEDE4D4),
                         child: Icon(Icons.checkroom_outlined,
                             size: 40, color: c.textTertiary))
-                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+                    : CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        cacheKey: item.imagePath != null
+                            ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+                            : null,
+                        fit: BoxFit.cover,
+                      ),
                 Positioned(
                   left: 10,
                   bottom: 10,

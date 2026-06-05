@@ -147,7 +147,11 @@ class _HistoryThumb extends ConsumerWidget {
                 color: c.surface2,
                 child: Icon(Icons.checkroom_outlined,
                     size: 18, color: c.textTertiary))
-            : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover),
+            : CachedNetworkImage(
+                imageUrl: url,
+                cacheKey: imagePath, // stable path — survives URL regen
+                fit: BoxFit.cover,
+              ),
       ),
     );
   }

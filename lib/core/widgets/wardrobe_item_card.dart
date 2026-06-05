@@ -196,6 +196,12 @@ class WardrobeItemCard extends StatelessWidget {
     if (imageUrl != null) {
       return CachedNetworkImage(
         imageUrl: imageUrl!,
+        // Versioned by updatedAt: same key on URL regen (cache hit, no egress);
+        // new key on photo edit (cache miss, downloads new image). RULE: every
+        // CachedNetworkImage consuming itemImageUrlProvider must follow this pattern.
+        cacheKey: item.imagePath != null
+            ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+            : null,
         fit: BoxFit.cover,
         placeholder: (_, _) => _photoPlaceholder(c),
         errorWidget: (_, _, _) => _photoPlaceholder(c),

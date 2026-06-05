@@ -321,7 +321,13 @@ class _ItemRow extends ConsumerWidget {
                         color: c.surface2,
                         child: Icon(Icons.checkroom_outlined,
                             size: 22, color: c.textTertiary))
-                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+                    : CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        cacheKey: item.imagePath != null
+                            ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+                            : null,
+                        fit: BoxFit.cover,
+                      ),
               ),
             ),
             const SizedBox(width: 12),

@@ -338,6 +338,11 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       compressFormat: ImageCompressFormat.jpg,
       compressQuality: 85,
+      // Cap output resolution so full-camera shots (12 MP+) don't generate
+      // multi-MB uploads. 1600×1600 at 85 % JPEG ≈ 200–400 KB — sharp enough
+      // for the full-screen 1:1 detail view on any current phone screen.
+      maxWidth: 1600,
+      maxHeight: 1600,
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Photo',
@@ -570,6 +575,9 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
         borderRadius: BorderRadius.circular(16),
         child: CachedNetworkImage(
           imageUrl: existingImageUrl,
+          cacheKey: widget.existingItem?.imagePath != null
+              ? '${widget.existingItem!.imagePath}_v${widget.existingItem!.updatedAt.millisecondsSinceEpoch}'
+              : null,
           fit: BoxFit.cover,
           width: double.infinity,
           height: 200,

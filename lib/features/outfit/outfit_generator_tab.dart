@@ -390,7 +390,13 @@ class _PinnedStrip extends ConsumerWidget {
                       color: c.surface2,
                       child: Icon(Icons.checkroom_outlined,
                           size: 18, color: c.textTertiary))
-                  : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+                  : CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      cacheKey: item.imagePath != null
+                          ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+                          : null,
+                      fit: BoxFit.cover,
+                    ),
             ),
           ),
           const SizedBox(width: 8),
@@ -692,7 +698,13 @@ class _Thumb extends ConsumerWidget {
               color: c.surface2,
               child: Icon(Icons.checkroom_outlined,
                   size: 22, color: c.textTertiary))
-          : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+          : CachedNetworkImage(
+              imageUrl: imageUrl,
+              cacheKey: item.imagePath != null
+                  ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+                  : null,
+              fit: BoxFit.cover,
+            ),
     );
   }
 }

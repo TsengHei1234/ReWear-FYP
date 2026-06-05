@@ -72,7 +72,12 @@ class DailyRotationCard extends ConsumerWidget {
                     child: SizedBox(
                       width: 88,
                       height: 88,
-                      child: _Photo(imageUrl: imageUrl),
+                      child: _Photo(
+                      imageUrl: imageUrl,
+                      cacheKey: item.imagePath != null
+                          ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
+                          : null,
+                    ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -168,9 +173,13 @@ class DailyRotationCard extends ConsumerWidget {
 }
 
 class _Photo extends StatelessWidget {
-  const _Photo({this.imageUrl});
+  const _Photo({this.imageUrl, this.cacheKey});
 
   final String? imageUrl;
+  /// Stable Supabase storage path used as the CachedNetworkImage cache key so
+  /// the disk cache survives signed-URL regeneration (see RULE in
+  /// wardrobe_item_card.dart). Pass item.imagePath from the parent widget.
+  final String? cacheKey;
 
   @override
   Widget build(BuildContext context) {
@@ -182,6 +191,7 @@ class _Photo extends StatelessWidget {
     if (imageUrl == null) return placeholder();
     return CachedNetworkImage(
       imageUrl: imageUrl!,
+      cacheKey: cacheKey,
       fit: BoxFit.cover,
       placeholder: (_, _) => placeholder(),
       errorWidget: (_, _, _) => placeholder(),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,11 +17,45 @@ import 'auth_providers.dart';
 
 /// Resolves a Supabase storage path → signed URL. Cached while in scope.
 /// Returns null if [storagePath] is null (no photo uploaded yet).
-final itemImageUrlProvider =
-    FutureProvider.autoDispose.family<String?, String?>((ref, storagePath) async {
-  if (storagePath == null || storagePath.isEmpty) return null;
-  return ref.watch(storageRepositoryProvider).getSignedUrl(storagePath);
-});
+///
+/// ⚠️ EGRESS RULE — MUST follow in every widget that consumes this provider:
+/// Supabase `createSignedUrl` produces a new URL on every call (different
+/// token/signature even for the same file). Because this provider is
+/// `autoDispose`, it regenerates on each rebuild after the widget tree leaves
+/// scope (e.g. tab switch, navigation pop). If `CachedNetworkImage` uses the
+/// URL as its cache key (the default), it will re-download the full image every
+/// time. To prevent that, **always pass a versioned `cacheKey`**:
+///   `item.imagePath != null ? '${item.imagePath}_v${item.updatedAt.ms}' : null`
+/// Same key on URL regen → disk-cache hit, zero egress. New key after a photo
+/// edit (`trg_items_updated_at` bumps `updated_at`) → cache miss → downloads
+/// the new image exactly once. Applies to Phase 7 (Donate), Phase 8, and beyond.
+const _itemImageUrlCacheTtl = Duration(hours: 1);
+
+final itemImageUrlProvider = FutureProvider.autoDispose
+    .family<String?, String?>((ref, storagePath) async {
+      if (storagePath == null || storagePath.isEmpty) return null;
+
+      final signedUrl = await ref
+          .watch(storageRepositoryProvider)
+          .getSignedUrl(storagePath);
+      if (signedUrl.isEmpty) return signedUrl;
+
+      final link = ref.keepAlive();
+      Timer? cacheTimer;
+
+      ref.onCancel(() {
+        cacheTimer = Timer(_itemImageUrlCacheTtl, link.close);
+      });
+      ref.onResume(() {
+        cacheTimer?.cancel();
+        cacheTimer = null;
+      });
+      ref.onDispose(() {
+        cacheTimer?.cancel();
+      });
+
+      return signedUrl;
+    });
 
 // ── Item events provider (wear/skip history) ──────────────────────────────────
 
@@ -28,23 +63,27 @@ final itemImageUrlProvider =
 /// Re-fetches whenever the wardrobe is invalidated (e.g. after a Log Wear).
 final itemEventsProvider = FutureProvider.autoDispose
     .family<List<ItemEvent>, String>((ref, itemId) async {
-  ref.watch(wardrobeProvider); // refresh after a log/edit
-  return ref.read(itemEventRepositoryProvider).getEventsForItem(itemId);
-});
+      ref.watch(wardrobeProvider); // refresh after a log/edit
+      return ref.read(itemEventRepositoryProvider).getEventsForItem(itemId);
+    });
 
 // ── Repository providers ──────────────────────────────────────────────────────
 
-final storageRepositoryProvider =
-    Provider<StorageRepository>((ref) => StorageRepository());
+final storageRepositoryProvider = Provider<StorageRepository>(
+  (ref) => StorageRepository(),
+);
 
 final itemRepositoryProvider = Provider<ItemRepository>(
-    (ref) => ItemRepository(storage: ref.watch(storageRepositoryProvider)));
+  (ref) => ItemRepository(storage: ref.watch(storageRepositoryProvider)),
+);
 
-final itemEventRepositoryProvider =
-    Provider<ItemEventRepository>((ref) => ItemEventRepository());
+final itemEventRepositoryProvider = Provider<ItemEventRepository>(
+  (ref) => ItemEventRepository(),
+);
 
-final outfitLogRepositoryProvider =
-    Provider<OutfitLogRepository>((ref) => OutfitLogRepository());
+final outfitLogRepositoryProvider = Provider<OutfitLogRepository>(
+  (ref) => OutfitLogRepository(),
+);
 
 // ── Convenience: current user id ─────────────────────────────────────────────
 
@@ -70,8 +109,9 @@ final currentUserIdProvider = Provider<String?>((ref) {
 /// defined in their own files (Phases 5–7). This notifier calls
 /// ref.invalidateSelf() and callers are responsible for invalidating the other
 /// providers after each mutation (see Phase 4 feature controllers).
-final wardrobeProvider =
-    AsyncNotifierProvider<WardrobeNotifier, List<Item>>(WardrobeNotifier.new);
+final wardrobeProvider = AsyncNotifierProvider<WardrobeNotifier, List<Item>>(
+  WardrobeNotifier.new,
+);
 
 class WardrobeNotifier extends AsyncNotifier<List<Item>> {
   @override
@@ -88,18 +128,31 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
   Future<Item> addItem({required Item item, File? photo}) async {
     final userId = ref.read(currentUserIdProvider)!;
     final repo = ref.read(itemRepositoryProvider);
-    final created =
-        await repo.addItem(userId: userId, item: item, photo: photo);
+    final created = await repo.addItem(
+      userId: userId,
+      item: item,
+      photo: photo,
+    );
     ref.invalidateSelf();
     return created;
   }
 
-  /// Update an existing item.  Invalidates self (+ caller: Insights, Donation,
-  /// OutfitGenerator).
+  /// Update an existing item. Replaces the item in local state with the
+  /// DB-confirmed version (no full re-fetch). Image cache refresh is handled
+  /// automatically by the versioned cacheKey in each widget
+  /// (`imagePath_v{updatedAt.ms}`): the DB trigger updates `updated_at` on
+  /// every save, so the new key is always a cache miss after a photo change.
+  /// Caller must still invalidate Insights, Donation, OutfitGenerator.
   Future<Item> editItem({required Item item, File? photo}) async {
     final repo = ref.read(itemRepositoryProvider);
     final updated = await repo.updateItem(item: item, photo: photo);
-    ref.invalidateSelf();
+    final currentItems = state.asData?.value;
+    if (currentItems != null) {
+      state = AsyncData([
+        for (final existing in currentItems)
+          existing.id == updated.id ? updated : existing,
+      ]);
+    }
     return updated;
   }
 
@@ -118,15 +171,17 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     final today = DateTime.now();
 
     // 1. Log the WORN event.
-    await eventRepo.logEvent(ItemEvent(
-      id: '',
-      userId: userId,
-      itemId: item.id,
-      eventType: EventType.worn,
-      source: source,
-      occasion: occasion,
-      eventAt: today,
-    ));
+    await eventRepo.logEvent(
+      ItemEvent(
+        id: '',
+        userId: userId,
+        itemId: item.id,
+        eventType: EventType.worn,
+        source: source,
+        occasion: occasion,
+        eventAt: today,
+      ),
+    );
 
     // 2. Update wear stats (a real wear clears the "unknown" estimates).
     final newWearCount = item.wearCount + 1;
@@ -198,16 +253,22 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     required ItemEventSource source,
   }) async {
     final userId = ref.read(currentUserIdProvider)!;
-    await ref.read(itemEventRepositoryProvider).logEvent(ItemEvent(
-          id: '',
-          userId: userId,
-          itemId: item.id,
-          eventType: EventType.skipped,
-          source: source,
-          occasion: occasion,
-          eventAt: DateTime.now(),
-        ));
-    await ref.read(itemRepositoryProvider).updateWearStats(
+    await ref
+        .read(itemEventRepositoryProvider)
+        .logEvent(
+          ItemEvent(
+            id: '',
+            userId: userId,
+            itemId: item.id,
+            eventType: EventType.skipped,
+            source: source,
+            occasion: occasion,
+            eventAt: DateTime.now(),
+          ),
+        );
+    await ref
+        .read(itemRepositoryProvider)
+        .updateWearStats(
           itemId: item.id,
           wearCount: item.wearCount,
           skipCount: item.skipCount + 1,
@@ -245,16 +306,18 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     // 2. Per item: linked WORN event + wear stats + AUTO condition drop.
     for (final p in pieces) {
       final item = p.item;
-      await eventRepo.logEvent(ItemEvent(
-        id: '',
-        userId: userId,
-        itemId: item.id,
-        eventType: EventType.worn,
-        source: ItemEventSource.outfitGenerator,
-        occasion: occasion,
-        outfitLogId: log.id,
-        eventAt: today,
-      ));
+      await eventRepo.logEvent(
+        ItemEvent(
+          id: '',
+          userId: userId,
+          itemId: item.id,
+          eventType: EventType.worn,
+          source: ItemEventSource.outfitGenerator,
+          occasion: occasion,
+          outfitLogId: log.id,
+          eventAt: today,
+        ),
+      );
 
       final newWearCount = item.wearCount + 1;
       await itemRepo.updateWearStats(
@@ -300,7 +363,9 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     required ItemStatus status,
     DateTime? laundryStartedAt,
   }) async {
-    await ref.read(itemRepositoryProvider).updateStatus(
+    await ref
+        .read(itemRepositoryProvider)
+        .updateStatus(
           itemId: itemId,
           status: status,
           laundryStartedAt: laundryStartedAt,
@@ -321,7 +386,8 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     required String itemId,
     required DateTime keptUntil,
   }) async {
-    await ref.read(itemRepositoryProvider)
+    await ref
+        .read(itemRepositoryProvider)
         .setKeptUntil(itemId: itemId, keptUntil: keptUntil);
     ref.invalidateSelf();
   }

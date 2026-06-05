@@ -192,6 +192,11 @@ class ItemDetailPage extends ConsumerWidget {
     if (imageUrl != null) {
       return CachedNetworkImage(
         imageUrl: imageUrl,
+        // Versioned by updatedAt: same key on URL regen (cache hit, no egress);
+        // new key on photo edit (cache miss, downloads new image).
+        cacheKey: it.imagePath != null
+            ? '${it.imagePath}_v${it.updatedAt.millisecondsSinceEpoch}'
+            : null,
         fit: BoxFit.cover,
         placeholder: (ctx, url) => Container(
           color: c.surface,

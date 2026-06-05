@@ -355,6 +355,60 @@ Claude Code via the `supabase` MCP server (OAuth, same account).
     review link → Donate tab). Worn-today (G2) keeps the carousel fresh.
   - Post-auth landing now `/home` (was `/wardrobe`): splash, login, onboarding.
   - Contract: `docs/features/home_contract.md`. **172 tests pass; analyze clean.**
+- [x] **Hotfix — Storage Egress + edited-photo image fix (post-Phase 6)** ✅
+  - **Root cause (egress):** `CachedNetworkImage` had no `cacheKey` anywhere. Supabase
+    `createSignedUrl` produces a new token on every call; `itemImageUrlProvider` is
+    `autoDispose` so it regenerates on every navigation. Without a stable key,
+    `CachedNetworkImage` treated each new URL as a cache miss and re-downloaded the
+    full image from Supabase Storage → ~1 GB egress in 3 days of testing.
+  - **Fix A — stable `cacheKey` (initial step, all call sites):** added
+    `cacheKey: item.imagePath` to all `CachedNetworkImage` widgets — 9 call sites
+    across 8 files. The storage path is stable across URL regenerations; the disk
+    cache now survives tab switches and navigation. **Later superseded on live item
+    widgets by Fix C (versioned key) below.** `outfit_history_page.dart` keeps
+    `cacheKey: imagePath` permanently (history thumbnails are immutable records).
+  - **Fix B — upload resolution cap:** added `maxWidth: 1600, maxHeight: 1600` to
+    `ImageCropper().cropImage(...)` in `add_edit_item_page.dart`
+    (`compressQuality: 85` unchanged). New uploads cap at 1600×1600 px (≈ 200–400 KB
+    vs the previous ~770 KB). Existing stored images are not affected.
+  - **Signed URL TTL cache (keepAlive, unchanged):** `itemImageUrlProvider` keeps a
+    successful signed URL alive for 1 hour after its last listener leaves
+    (`ref.keepAlive()` + 1-hour `onCancel` timer; cancelled on `onResume`; cleaned up
+    on `onDispose`). Reduces repeated `createSignedUrl` API calls on scroll/navigation.
+    Not full offline support. **This logic was not touched by Fix C.**
+  - **Fix C — Versioned `cacheKey` (edited-photo bug, FINAL fix):** Changed all
+    live/current item image widgets from `cacheKey: imagePath` to:
+      `imagePath != null ? '${imagePath}_v${updatedAt.millisecondsSinceEpoch}' : null`
+    **Why it works:** when a photo is replaced, the Supabase storage path stays the
+    same but `updatedAt` changes (the `trg_items_updated_at` DB trigger sets it on
+    every UPDATE). New `_v{ms}` suffix → `flutter_cache_manager` cache miss →
+    downloads new image exactly once → cached for all later views. Same `updatedAt`
+    across URL regenerations → same key → disk cache hit → zero egress. Removed the
+    broken `evictFromCache` + `ref.invalidate(itemImageUrlProvider)` block from
+    `WardrobeNotifier.editItem` (Codex's earlier attempt, replaced entirely by this
+    strategy). Also removed Codex's `ValueKey('${imagePath}-${updatedAt}')` on
+    `CachedNetworkImage` widgets (redundant with the versioned key approach).
+    Files changed by Fix C (8 files; outfit_history_page.dart intentionally skipped):
+    `lib/providers/wardrobe_providers.dart` (editItem simplified),
+    `lib/core/widgets/wardrobe_item_card.dart`,
+    `lib/features/wardrobe/item_detail_page.dart`,
+    `lib/features/home/home_page.dart`,
+    `lib/features/outfit/widgets/daily_rotation_card.dart`,
+    `lib/features/outfit/outfit_generator_tab.dart` (×2: pinned strip + thumb),
+    `lib/features/outfit/outfit_detail_page.dart`,
+    `lib/features/wardrobe/add_edit_item_page.dart` (edit-form photo preview).
+  - **Future rule → DECISIONS.md I1 (updated):** every new clothing-image widget —
+    Phase 7 Donate, Insights, and all later phases — MUST use the versioned cacheKey
+    form above. Exception: display-only historical thumbnails (like outfit history)
+    may use `cacheKey: imagePath` since the underlying item never changes after
+    logging. Rule also recorded as a doc-comment on `itemImageUrlProvider`.
+  - **Edited-photo bug: FIXED** by Fix C. After replacing a photo and saving, the
+    new image appears immediately in Item Detail and Wardrobe cards — no scroll or
+    restart needed.
+  - **Remaining open image issue (UI polish only):** general visual flicker during
+    fast scrolling, filter switching, and page/tab navigation. Not a Supabase egress
+    or photo-refresh issue — defer to Phase 9 polish.
+  - **`flutter analyze` clean.** No schema, engine, routing, or unrelated UI changes.
 - [ ] **Phase 7 — Donate + Insights**
 - [ ] **Phase 8 — Profile/Settings + notifications + laundry**
 - [ ] **Phase 9 — Polish + end-to-end + real-device run**
