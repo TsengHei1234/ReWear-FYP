@@ -1,6 +1,7 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/item.dart';
 import '../donation/donation_rules.dart' as donation;
+import '../insights/health_score.dart' as hs;
 
 /// All possible badge types, in priority order.
 /// Source: Rule Engine "Item Badge Labels" + FE §39.
@@ -57,10 +58,8 @@ List<BadgeType> computeAllBadges(Item item, List<Item> allItems, {DateTime? now}
     badges.add(BadgeType.donationReview);
   }
 
-  // P3 — Overused: wear_rate = wear_count / max(1, days_since_added) >= 0.20
-  final wearRate =
-      item.wearCount / (daysSinceAdded < 1 ? 1 : daysSinceAdded);
-  if (wearRate >= 0.20) badges.add(BadgeType.overused);
+  // P3 — Overused: uses shared itemWearRate() (initialUsageAgeDays + daysSinceAdded)
+  if (hs.itemWearRate(item, effectiveNow) >= 0.20) badges.add(BadgeType.overused);
 
   // P4 — Skipped often: skip_ratio > 0.50 (strict RE — guarded raw ratio,
   // 0 when there are no interactions to avoid divide-by-zero).
@@ -69,8 +68,11 @@ List<BadgeType> computeAllBadges(Item item, List<Item> allItems, {DateTime? now}
       totalInteractions == 0 ? 0.0 : item.skipCount / totalInteractions;
   if (skipRatio > 0.50) badges.add(BadgeType.skippedOften);
 
-  // P5 — Never worn (C1 resolution: wear_count == 0 AND days_since_added > 14)
-  if (item.wearCount == 0 && daysSinceAdded > 14) {
+  // P5 — Never worn: wear_count == 0 AND effective age > 14 days.
+  // Uses initialUsageAgeDays + daysSinceAdded so pre-owned unworn items get
+  // the badge immediately rather than waiting 14 real-world days.
+  final effectiveAge = item.initialUsageAgeDays + daysSinceAdded;
+  if (item.wearCount == 0 && effectiveAge > 14) {
     badges.add(BadgeType.neverWorn);
   }
 

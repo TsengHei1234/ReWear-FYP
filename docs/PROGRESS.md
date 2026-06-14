@@ -409,21 +409,88 @@ Claude Code via the `supabase` MCP server (OAuth, same account).
     fast scrolling, filter switching, and page/tab navigation. Not a Supabase egress
     or photo-refresh issue — defer to Phase 9 polish.
   - **`flutter analyze` clean.** No schema, engine, routing, or unrelated UI changes.
-- [ ] **Phase 7 — Donate + Insights**
+- [x] **Phase 7 — Donate + Insights** ✅
+  **Step 1 ✅** — Repository extensions + WardrobeNotifier:
+  - `ItemRepository.getDonatedItems(userId)` — fetches DONATED items (Donation History).
+  - `ItemRepository.clearKeptUntil(itemId)` — sets `kept_until = NULL` (Undo Keep).
+  - `WardrobeNotifier.clearKeptUntil(itemId)` — calls repo + invalidateSelf.
+  **Step 2 ✅** — Providers (TDD, 8 new tests → 180 total):
+  - `donation_providers.dart`: `DonationCandidateEntry` model, `donationCandidatesProvider`
+    (FutureProvider, watches wardrobe.future, evaluates D1–D5, sorts by DPS desc),
+    `keptItemsProvider` (FutureProvider, filters future kept_until, soonest first),
+    `donationHistoryProvider` (FutureProvider, calls getDonatedItems).
+  - `insights_providers.dart`: `InsightViewAllType` enum (5 predicates),
+    `InsightsData` model (health + stats + utilisationPct + rotationPct + 5 attention lists),
+    `insightsProvider` (FutureProvider, 90d events window, mirrors health_score.dart
+    utilisation/rotation computation, builds all attention lists).
+  **Step 3 ✅** — Donate UI (§26, §27, §28):
+  - `features/donate/donate_page.dart` — top bar (title + red count badge + profile avatar),
+    header card, shortcut tiles (Kept Items / Donation History), 5 filter chips (C5 confirmed:
+    All / Never Worn / Long Unused / Skipped Often / Poor Condition), candidate cards
+    (72×72 versioned-cacheKey photo + D-rule reason + condition label + Keep/Donate buttons),
+    Keep Duration bottom sheet (1 Week / 1 Month / 3 Months / 6 Months / Indefinitely=2099),
+    Donate confirm sheet (isDestructive). All `context.colors.X`.
+  - `features/donate/kept_items_page.dart` — rows with versioned-cacheKey photo, "Returns in N
+    days" / "Kept indefinitely" label, Undo Keep outlined button (clears kept_until).
+  - `features/donate/donation_history_page.dart` — category filter chips (All/Tops/Bottoms/
+    Outerwear/Shoes), rows with stable cacheKey (historical thumbnails, per I1 exception),
+    donated-on date, chevron → Item Detail.
+  **Step 4 ✅** — Insights UI (§29, §30, §41):
+  - `features/insights/insights_page.dart` — top bar (title + profile avatar), Health Score
+    card (130×130 ring via `_RingPainter` CustomPainter + score/100 + verdict + partial message
+    + two sub-score tiles), Quick Stats 2×2 grid (Total/Worn/NeverWorn/Donate→Donate tab),
+    Utilisation card (progress bar via `AppColors.utilisationFill` + sleeping items "View All →"),
+    Items That Need Attention card (scrollable TabBar with gradient fade + 4 tabs: Never Worn /
+    Long Unused / Skipped Often / Overused, 3 rows per tab with badge chips + "View All N →").
+  - `features/insights/view_all_page.dart` — reusable for all 5 predicates, title shows
+    "Section · N" count, category filter chips, full list with sub-label metrics + metric badge
+    (not section-name badge per FE §30 note), chevron → Item Detail.
+  **Step 5 ✅** — Routes:
+  - `Routes.keptItems = '/kept-items'`, `Routes.donationHistory = '/donation-history'`,
+    `Routes.viewAll = '/view-all'` (extra = InsightViewAllType).
+  - Branch 3 → DonatePage, Branch 4 → InsightsPage (both were PlaceholderPage).
+  - 3 new top-level GoRoutes for sub-pages.
+  - `flutter analyze` clean; 180 tests pass (8 new: 5 donation + 3 insights providers).
 - [ ] **Phase 8 — Profile/Settings + notifications + laundry**
 - [ ] **Phase 9 — Polish + end-to-end + real-device run**
 
 ## How to resume (next action)
 
-**NEXT: Phase 7 — Donate + Insights.** Phase 6 is COMPLETE (all 6 steps; Home, Daily
-Rotation, Generator, Outfit Detail, Outfit History — see Phase 6 block). Phases 0–6
-fully done. 172 tests pass, `flutter analyze` clean. Phase 7 (per plan): **Donate page**
-(§26 candidate cards via `engine/donation/donation_rules.dart` D1–D5 + DPS; filter chips
-C5 — confirm the Poor Condition chip), **Kept Items** (§27), **Donation History** (§28),
-**Insights page** (§29/§41 health ring via `computeWardrobeHealth`, quick stats via
-`computeQuickStats`, attention tabs), **View-All sub-pages** (§30, the 5 attention
-predicates in `health_score.dart`). Donate + Insights are placeholder shell branches
-now (`/donate`, `/insights`). Engine is all built/tested. Reuse, don't re-read the big MD.
+**NEXT: Phase 8 — Profile/Settings + notifications + laundry.** Phases 0–7 fully done.
+**187 tests pass, `flutter analyze` clean.** Phase 8 (per plan): **Settings hub + sub-screens**
+(`features/profile/`: settings, my_profile, style_prefs_edit, app_theme_screen,
+notification_settings, data_privacy, help_about), **theme persisted to SharedPreferences**,
+**local notifications N1–N6** (`services/notification_service.dart`; decision M2: N1 ~08:00
+local, N5 Sunday ~18:00 — confirm with user before building), **laundry auto-return on app
+open** (`services/laundry_service.dart`). The Home page top-bar shows a profile avatar stub
+(snackbar) currently — Phase 8 wires it to the real Settings hub.
+
+### Phase 7 — behaviour/UI DELTAS a new chat MUST know
+These were authored/locked during Phase 7 (Donate + Insights) and are the source of truth:
+- **Badge engine P3 (Overused):** uses shared `hs.itemWearRate(item, now)` from
+  `health_score.dart`. Do NOT inline the formula — reuse the helper.
+- **Badge engine P5 (Never Worn):** `effectiveAge = initialUsageAgeDays + daysSinceAdded > 14`.
+  Pre-owned unworn items get the badge immediately, not after 14 real-world days.
+- **Never Worn sub-label & badge pill:** "New" threshold uses `totalDays = initialUsageAgeDays +
+  daysSinceAdded ≤ 14`. Sub-label: "Owned N days, never worn" when `initialUsageAgeDays > 0`;
+  otherwise "Added today" (0d) / "Added 1 day ago" (1d) / "Added N days ago" (2+d).
+- **Sleeping (90+ days) ≠ Long Unused (60+ days):** both predicates exist in `health_score.dart`
+  (`isSleeping` ≥ 90d, `isLongUnused` > 60d). They are intentionally separate. The Utilisation
+  card shows `sleepingItems.length` + "90+ days" → "View All →" → `InsightViewAllType.sleeping`
+  (its own View-All page). The attention tab shows Long Unused (60+). Do NOT merge them.
+- **Insights attention lists do NOT filter by keptUntil.** A kept item (keptUntil in future)
+  still appears in Long Unused / Sleeping lists. This is a design decision, not a bug.
+- **Skipped Often formula is LOCKED:** `skipCount / (wearCount + skipCount) > 0.50`. Uses
+  lifetime `wearCount` (includes initial history). Do NOT add a noise-floor or change threshold.
+- **Overused threshold is LOCKED at 0.20** (wear_rate ≥ 0.20). Do not change.
+- **Kept Items page** has 6 category filter chips (All/Tops/Bottoms/Outerwear/Shoes/Others)
+  via `FilterChipRow`. Filter is pure client-side — no provider/schema change.
+- **keptItemsPageProvider** (direct DB call) is the data source for Kept Items page, NOT
+  `keptItemsProvider` (which is for tests only). Pattern mirrors DonationHistoryPage.
+- **Most Worn / Least Worn** are NOT View-All pages. Only `BadgeType.mostWorn` exists (P8
+  badge on grid cards). There are no `InsightViewAllType.mostWorn/leastWorn` values.
+- **versioned cacheKey rule (I1) applies to all Phase 7 widgets.** Donate, Kept Items,
+  Insights, View-All rows — all use `'${imagePath}_v${updatedAt.millisecondsSinceEpoch}'`.
 
 ### Phase 6 — behaviour/engine DELTAS a new chat MUST know (NOT in the v7 MD)
 These were authored/changed during Phase 6 and are the source of truth (see
@@ -443,6 +510,18 @@ These were authored/changed during Phase 6 and are the source of truth (see
 - **Engine additions:** `buildExplanationForOutfit(...)` + `OutfitExplanation.highlights`
   (ordered by RE Why-priority: New Item → High Rotation → Low Skip Rate → Balanced Wear)
   in `outfit_explanation.dart`.
+
+### What's already built (do NOT rebuild) — Phase 7 additions:
+- **Phase 7 providers:** `donation_providers.dart` (`donationCandidatesProvider`,
+  `keptItemsPageProvider`, `keptItemsProvider`, `donationHistoryProvider`);
+  `insights_providers.dart` (`insightsProvider`, `InsightsData`, `InsightViewAllType` enum).
+- **Phase 7 screens:** `features/donate/donate_page.dart`, `features/donate/kept_items_page.dart`
+  (with 6-chip category filter), `features/donate/donation_history_page.dart`;
+  `features/insights/insights_page.dart`, `features/insights/view_all_page.dart` (all 5 predicates).
+- **Phase 7 routes:** `Routes.keptItems`, `Routes.donationHistory`, `Routes.viewAll`
+  (`extra = InsightViewAllType`).
+- **Repo additions:** `ItemRepository.getDonatedItems(userId)`, `ItemRepository.getKeptItems(userId)`,
+  `ItemRepository.clearKeptUntil(itemId)`; `WardrobeNotifier.clearKeptUntil(itemId)`.
 
 ### What's already built (do NOT rebuild) — Phase 4 + earlier reference:
 - **Engines (Phase 5, see Phase 5 block above for full list):** all `lib/engine/*`

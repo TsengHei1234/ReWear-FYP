@@ -129,6 +129,34 @@ void main() {
     });
   });
 
+  group('itemWearRate (corrected formula)', () {
+    test('pre-owned item: uses initialUsageAgeDays + daysSinceAdded', () {
+      // 25 wears, added 8 days ago, but pre-owned for 730 days
+      // usagePeriodDays = 730 + 8 = 738 → wearRate ≈ 0.034 (NOT overused)
+      final item = makeItem(
+        wearCount: 25,
+        dateAdded: now.subtract(const Duration(days: 8)),
+        initialUsageAgeDays: 730,
+      );
+      expect(itemWearRate(item, now), lessThan(0.20));
+      expect(isOverused(item, now: now), isFalse);
+    });
+
+    test('dontRemember: ignores initialUsageAgeDays, uses daysSinceAdded only',
+        () {
+      // Same numbers but user said they don't remember initial wear count
+      // usagePeriodDays = 8 only → wearRate = 25/8 = 3.125 (overused)
+      final item = makeItem(
+        wearCount: 25,
+        dateAdded: now.subtract(const Duration(days: 8)),
+        initialUsageAgeDays: 730,
+        initialWearCountOption: 'dontRemember',
+      );
+      expect(itemWearRate(item, now), greaterThanOrEqualTo(0.20));
+      expect(isOverused(item, now: now), isTrue);
+    });
+  });
+
   group('quick stats', () {
     test('counts total / worn-this-month / never worn', () {
       final items = [

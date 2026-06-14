@@ -3,6 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../data/models/item.dart';
 import '../features/auth/forgot_password_screen.dart';
+import '../features/donate/donate_page.dart';
+import '../features/donate/donation_history_page.dart';
+import '../features/donate/kept_items_page.dart';
+import '../features/insights/insights_page.dart';
+import '../features/insights/view_all_page.dart';
 import '../features/wardrobe/full_wear_history_page.dart';
 import '../features/wardrobe/item_detail_page.dart';
 import '../features/auth/login_screen.dart';
@@ -14,9 +19,9 @@ import '../features/outfit/outfit_detail_page.dart';
 import '../features/outfit/outfit_history_page.dart';
 import '../features/outfit/outfit_page.dart';
 import '../features/shell/main_shell.dart';
-import '../features/shell/placeholder_page.dart';
 import '../features/wardrobe/add_edit_item_page.dart';
 import '../features/wardrobe/wardrobe_page.dart';
+import '../providers/insights_providers.dart';
 
 /// App route paths — avoid string typos across the codebase.
 abstract class Routes {
@@ -42,6 +47,13 @@ abstract class Routes {
   // ── Outfit sub-pages ──────────────────────────────────────────
   static const outfitDetail = '/outfit-detail';
   static const outfitHistory = '/outfit-history';
+
+  // ── Donate sub-pages ──────────────────────────────────────────
+  static const keptItems = '/kept-items';
+  static const donationHistory = '/donation-history';
+
+  // ── Insights sub-pages ────────────────────────────────────────
+  static const viewAll = '/view-all';
 }
 
 /// Central router.
@@ -110,6 +122,25 @@ final appRouter = GoRouter(
       builder: (context, state) => const OutfitHistoryPage(),
     ),
 
+    // ── Donate sub-pages (no shell nav bar) ──────────────────────
+    GoRoute(
+      path: Routes.keptItems,
+      builder: (context, state) => const KeptItemsPage(),
+    ),
+    GoRoute(
+      path: Routes.donationHistory,
+      builder: (context, state) => const DonationHistoryPage(),
+    ),
+
+    // ── Insights sub-pages (no shell nav bar) ────────────────────
+    GoRoute(
+      path: Routes.viewAll,
+      builder: (context, state) {
+        final type = state.extra as InsightViewAllType;
+        return ViewAllPage(type: type);
+      },
+    ),
+
     // ── Main shell (5-tab persistent nav) ────────────────────────
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -150,8 +181,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: Routes.shellDonate,
-              builder: (context, state) =>
-                  const PlaceholderPage(title: 'Donate'),
+              builder: (context, state) => const DonatePage(),
             ),
           ],
         ),
@@ -161,8 +191,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: Routes.shellInsights,
-              builder: (context, state) =>
-                  const PlaceholderPage(title: 'Insights'),
+              builder: (context, state) => const InsightsPage(),
             ),
           ],
         ),

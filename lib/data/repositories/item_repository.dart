@@ -168,6 +168,11 @@ class ItemRepository {
     }).eq('id', itemId);
   }
 
+  /// Clear `kept_until` (Undo Keep — returns item to donation candidates).
+  Future<void> clearKeptUntil(String itemId) async {
+    await _client.from('items').update({'kept_until': null}).eq('id', itemId);
+  }
+
   /// Confirm donation: sets `status = DONATED` and `donated_at = today`.
   Future<void> confirmDonation(String itemId) async {
     final today = DateTime.now();
@@ -195,6 +200,40 @@ class ItemRepository {
         .select()
         .eq('user_id', userId)
         .eq('status', ItemStatus.laundry.value);
+    return rows.map(Item.fromJson).toList();
+  }
+
+  /// All DONATED items for the user, newest donation first.
+  /// Used by Donation History page (FE §28).
+  Future<List<Item>> getDonatedItems(String userId) async {
+    final rows = await _client
+        .from('items')
+        .select()
+        .eq('user_id', userId)
+        .eq('status', ItemStatus.donated.value)
+        .order('donated_at', ascending: false);
+    return rows.map(Item.fromJson).toList();
+  }
+
+  /// Items currently deferred from donation (kept_until strictly after today).
+  /// Used by Kept Items page (FE §27). Returns items in wardrobe statuses only.
+  Future<List<Item>> getKeptItems(String userId) async {
+    final now = DateTime.now();
+    final today =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    final rows = await _client
+        .from('items')
+        .select()
+        .eq('user_id', userId)
+        .inFilter('status', [
+          ItemStatus.inWardrobe.value,
+          ItemStatus.laundry.value,
+          ItemStatus.lent.value,
+          ItemStatus.stored.value,
+        ])
+        .gt('kept_until', today);
     return rows.map(Item.fromJson).toList();
   }
 }

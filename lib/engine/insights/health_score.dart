@@ -11,9 +11,22 @@ bool _isActive(Item i) =>
 
 int _daysSinceAdded(Item i, DateTime now) => now.difference(i.dateAdded).inDays;
 
-double _wearRate(Item i, DateTime now) {
-  final days = _daysSinceAdded(i, now);
-  return i.wearCount / (days < 1 ? 1 : days);
+const _dontRemember = 'dontRemember';
+
+/// Wear rate matching the locked WFSS formula.
+/// Uses initialUsageAgeDays + daysSinceAdded unless the user selected
+/// 'dontRemember' for their initial wear count, in which case only
+/// daysSinceAdded is used (we have no reliable prior ownership duration).
+double itemWearRate(Item i, DateTime now) {
+  final daysSinceAdded = _daysSinceAdded(i, now);
+  final int usagePeriodDays;
+  if (i.initialWearCountOption == _dontRemember) {
+    usagePeriodDays = daysSinceAdded < 1 ? 1 : daysSinceAdded;
+  } else {
+    final raw = i.initialUsageAgeDays + daysSinceAdded;
+    usagePeriodDays = raw < 1 ? 1 : raw;
+  }
+  return i.wearCount / usagePeriodDays;
 }
 
 int? _daysSinceWorn(Item i, DateTime now) =>
@@ -82,7 +95,7 @@ WardrobeHealth computeWardrobeHealth(
 
   final overused = active
       .where((i) =>
-          i.status == ItemStatus.inWardrobe && _wearRate(i, now) >= 0.20)
+          i.status == ItemStatus.inWardrobe && itemWearRate(i, now) >= 0.20)
       .length;
   final rotationScore = (1 - (overused / active.length)) * 100 * 0.50;
 
@@ -152,7 +165,7 @@ bool isLongUnused(Item i, {required DateTime now}) {
 bool isSkippedOften(Item i) => _isActive(i) && _rawSkipRatio(i) > 0.50;
 
 bool isOverused(Item i, {required DateTime now}) =>
-    i.status == ItemStatus.inWardrobe && _wearRate(i, now) >= 0.20;
+    i.status == ItemStatus.inWardrobe && itemWearRate(i, now) >= 0.20;
 
 bool isSleeping(Item i, {required DateTime now}) {
   if (!_isActive(i) || i.wearCount == 0) return false;

@@ -392,6 +392,13 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     ref.invalidateSelf();
   }
 
+  /// Undo Keep — clears [kept_until] and returns the item to donation candidates.
+  /// Invalidates self (+ caller: Insights, Donation).
+  Future<void> clearKeptUntil(String itemId) async {
+    await ref.read(itemRepositoryProvider).clearKeptUntil(itemId);
+    ref.invalidateSelf();
+  }
+
   /// Force a fresh fetch from Supabase (e.g. after laundry auto-return).
   void invalidate() => ref.invalidateSelf();
 }
