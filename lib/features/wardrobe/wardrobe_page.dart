@@ -9,7 +9,8 @@ import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../core/widgets/wardrobe_item_card.dart';
 import '../../data/models/item.dart';
-import '../../providers/auth_providers.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../providers/profile_providers.dart';
 import '../../providers/wardrobe_providers.dart';
 import '../../routing/app_router.dart';
 import '../outfit/build_outfit_action.dart';
@@ -155,20 +156,10 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
     return '$label · ${filtered.length}';
   }
 
-  String _initials(String? displayName, String? email) {
-    final name = displayName ?? email ?? '?';
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
-  }
-
   @override
   Widget build(BuildContext context) {
     final wardrobeAsync = ref.watch(wardrobeProvider);
-    final authRepo = ref.watch(authRepositoryProvider);
-    final user = authRepo.currentUser;
+    final profile = ref.watch(profileProvider).asData?.value;
     final c = context.colors;
 
     return Scaffold(
@@ -192,7 +183,7 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
                     // ── Fixed top section (does NOT scroll) ──────
                     // ── Top bar ──────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -218,28 +209,8 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
                               ],
                             ),
                           ),
-                          // Profile avatar
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: c.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                _initials(
-                                  user?.userMetadata?['display_name']
-                                      as String?,
-                                  user?.email,
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                          ProfileAvatarButton(
+                            source: profile?.displayName ?? profile?.email,
                           ),
                         ],
                       ),

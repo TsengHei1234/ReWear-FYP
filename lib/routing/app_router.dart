@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/models/item.dart';
@@ -8,6 +9,13 @@ import '../features/donate/donation_history_page.dart';
 import '../features/donate/kept_items_page.dart';
 import '../features/insights/insights_page.dart';
 import '../features/insights/view_all_page.dart';
+import '../features/profile/app_theme_screen.dart';
+import '../features/profile/data_privacy_page.dart';
+import '../features/profile/help_about_page.dart';
+import '../features/profile/my_profile_page.dart';
+import '../features/profile/notification_settings_page.dart';
+import '../features/profile/settings_page.dart';
+import '../features/profile/style_prefs_edit_page.dart';
 import '../features/wardrobe/full_wear_history_page.dart';
 import '../features/wardrobe/item_detail_page.dart';
 import '../features/auth/login_screen.dart';
@@ -22,6 +30,7 @@ import '../features/shell/main_shell.dart';
 import '../features/wardrobe/add_edit_item_page.dart';
 import '../features/wardrobe/wardrobe_page.dart';
 import '../providers/insights_providers.dart';
+import '../providers/wardrobe_providers.dart';
 
 /// App route paths — avoid string typos across the codebase.
 abstract class Routes {
@@ -42,6 +51,7 @@ abstract class Routes {
   static const addItem = '/add-item';
   static const editItem = '/edit-item';
   static const itemDetail = '/item-detail';
+  static const itemDetailById = '/item-detail-id';
   static const wearHistory = '/wear-history';
 
   // ── Outfit sub-pages ──────────────────────────────────────────
@@ -54,6 +64,15 @@ abstract class Routes {
 
   // ── Insights sub-pages ────────────────────────────────────────
   static const viewAll = '/view-all';
+
+  // Profile & Settings sub-pages
+  static const settings = '/settings';
+  static const settingsProfile = '/settings/profile';
+  static const settingsStylePrefs = '/settings/style-prefs';
+  static const settingsTheme = '/settings/theme';
+  static const settingsNotifications = '/settings/notifications';
+  static const settingsDataPrivacy = '/settings/data-privacy';
+  static const settingsHelpAbout = '/settings/help-about';
 }
 
 /// Central router.
@@ -103,6 +122,14 @@ final appRouter = GoRouter(
         return ItemDetailPage(item: item);
       },
     ),
+    // Notification tap adapter: resolves itemId → Item from wardrobe state.
+    GoRoute(
+      path: '${Routes.itemDetailById}/:id',
+      builder: (context, state) {
+        final itemId = state.pathParameters['id']!;
+        return _ItemDetailByIdPage(itemId: itemId);
+      },
+    ),
     GoRoute(
       path: Routes.wearHistory,
       builder: (context, state) {
@@ -139,6 +166,36 @@ final appRouter = GoRouter(
         final type = state.extra as InsightViewAllType;
         return ViewAllPage(type: type);
       },
+    ),
+
+    // Profile & Settings sub-pages (no shell nav bar)
+    GoRoute(
+      path: Routes.settings,
+      builder: (context, state) => const SettingsPage(),
+    ),
+    GoRoute(
+      path: Routes.settingsProfile,
+      builder: (context, state) => const MyProfilePage(),
+    ),
+    GoRoute(
+      path: Routes.settingsStylePrefs,
+      builder: (context, state) => const StylePrefsEditPage(),
+    ),
+    GoRoute(
+      path: Routes.settingsTheme,
+      builder: (context, state) => const AppThemeScreen(),
+    ),
+    GoRoute(
+      path: Routes.settingsNotifications,
+      builder: (context, state) => const NotificationSettingsPage(),
+    ),
+    GoRoute(
+      path: Routes.settingsDataPrivacy,
+      builder: (context, state) => const DataPrivacyPage(),
+    ),
+    GoRoute(
+      path: Routes.settingsHelpAbout,
+      builder: (context, state) => const HelpAboutPage(),
     ),
 
     // ── Main shell (5-tab persistent nav) ────────────────────────
@@ -202,3 +259,34 @@ final appRouter = GoRouter(
     body: Center(child: Text('Route not found: ${state.uri}')),
   ),
 );
+
+/// Looks up [itemId] in the live wardrobe state and renders [ItemDetailPage].
+/// Used by N6 notification taps so the deep-link only needs the item's UUID.
+class _ItemDetailByIdPage extends ConsumerWidget {
+  const _ItemDetailByIdPage({required this.itemId});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(wardrobeProvider).when(
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Item not found')),
+      ),
+      data: (items) {
+        final item = items.where((i) => i.id == itemId).firstOrNull;
+        if (item == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Center(child: Text('Item not found')),
+          );
+        }
+        return ItemDetailPage(item: item);
+      },
+    );
+  }
+}

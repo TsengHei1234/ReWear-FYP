@@ -4,9 +4,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:rewear/core/constants/enums.dart';
 import 'package:rewear/data/models/item_event.dart';
 import 'package:rewear/data/models/outfit_log.dart';
+import 'package:rewear/data/models/profile.dart';
 import 'package:rewear/data/repositories/item_event_repository.dart';
 import 'package:rewear/data/repositories/item_repository.dart';
 import 'package:rewear/data/repositories/outfit_log_repository.dart';
+import 'package:rewear/providers/profile_providers.dart';
 import 'package:rewear/providers/wardrobe_providers.dart';
 
 import '../engine/support/item_factory.dart';
@@ -16,6 +18,11 @@ class MockItemRepository extends Mock implements ItemRepository {}
 class MockItemEventRepository extends Mock implements ItemEventRepository {}
 
 class MockOutfitLogRepository extends Mock implements OutfitLogRepository {}
+
+class _StubProfileNotifier extends ProfileNotifier {
+  @override
+  Future<Profile?> build() async => null;
+}
 
 final _dummyEvent = ItemEvent(
   id: 'evt',
@@ -70,11 +77,13 @@ void main() {
           outfitScore: any(named: 'outfitScore'),
         )).thenAnswer((_) async => _dummyLog);
 
+    when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
     final c = ProviderContainer(overrides: [
       currentUserIdProvider.overrideWithValue('user-1'),
       itemRepositoryProvider.overrideWithValue(itemRepo),
       itemEventRepositoryProvider.overrideWithValue(eventRepo),
       outfitLogRepositoryProvider.overrideWithValue(outfitLogRepo),
+      profileProvider.overrideWith(_StubProfileNotifier.new),
     ]);
     addTearDown(c.dispose);
     return c;

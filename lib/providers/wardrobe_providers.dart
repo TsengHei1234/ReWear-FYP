@@ -11,7 +11,14 @@ import '../data/repositories/item_repository.dart';
 import '../data/repositories/outfit_log_repository.dart';
 import '../data/repositories/storage_repository.dart';
 import '../engine/condition/condition_engine.dart';
+import '../engine/donation/donation_rules.dart' as donation;
+import '../engine/insights/health_score.dart';
+import '../services/laundry_return_service.dart';
+import '../services/notification_eligibility.dart';
+import '../services/notification_service.dart';
 import 'auth_providers.dart';
+import 'notification_settings_provider.dart';
+import 'profile_providers.dart';
 
 // ── Image URL provider ────────────────────────────────────────────────────────
 
@@ -114,11 +121,107 @@ final wardrobeProvider = AsyncNotifierProvider<WardrobeNotifier, List<Item>>(
 );
 
 class WardrobeNotifier extends AsyncNotifier<List<Item>> {
+  /// Guard: app-open notification check fires only once per notifier lifetime
+  /// (i.e., once per app session). Subsequent [build] calls from invalidateSelf
+  /// after mutations skip the check to avoid repeat notifications.
+  bool _sessionChecked = false;
+
   @override
   Future<List<Item>> build() async {
     final userId = ref.watch(currentUserIdProvider);
     if (userId == null) return [];
-    return ref.read(itemRepositoryProvider).getWardrobeItems(userId);
+
+    // Auto-return any LAUNDRY items whose cycle has completed before loading.
+    final profile = await ref.read(profileProvider.future);
+    final cycleDays = profile?.laundryCycleDays ?? 3;
+    await LaundryReturnService(ref.read(itemRepositoryProvider))
+        .run(userId: userId, laundryCycleDays: cycleDays);
+
+    final items =
+        await ref.read(itemRepositoryProvider).getWardrobeItems(userId);
+
+    if (!_sessionChecked) {
+      _sessionChecked = true;
+      await _checkNotificationsOnOpen(items);
+    }
+
+    return items;
+  }
+
+  Future<void> _checkNotificationsOnOpen(List<Item> items) async {
+    final ns = NotificationService.instance;
+    // Skip in test environments where initialize() was never called.
+    if (!ns.isInitialized) return;
+    final now = DateTime.now();
+
+    // daysSinceLastLog: whole calendar days since most-recent known worn date.
+    final todayDate = DateTime(now.year, now.month, now.day);
+    DateTime? latestWorn;
+    for (final item in items) {
+      if (item.lastWornDate != null && !item.lastWornUnknown) {
+        if (latestWorn == null || item.lastWornDate!.isAfter(latestWorn)) {
+          latestWorn = item.lastWornDate;
+        }
+      }
+    }
+    final daysSinceLastLog = latestWorn == null
+        ? 0
+        : todayDate
+            .difference(DateTime(
+                latestWorn.year, latestWorn.month, latestWorn.day))
+            .inDays;
+
+    final longUnwornCount = items.where((i) => isLongUnused(i, now: now)).length;
+    final donationCandidates =
+        items.where((i) => donation.isDonationCandidate(i, now: now)).length;
+
+    final toggles = await ref.read(notificationSettingsProvider.future);
+    final lastN3 = await ns.getLastN3FiredAt();
+    final lastN4 = await ns.getLastN4FiredAt();
+
+    final result = NotificationEligibility.evaluate(
+      daysSinceLastLog: daysSinceLastLog,
+      longUnwornCount: longUnwornCount,
+      donationCandidates: donationCandidates,
+      conditionDropped: false,
+      isAutoConditionMode: false,
+      toggles: toggles,
+      lastN3FiredAt: lastN3,
+      lastN4FiredAt: lastN4,
+      now: now,
+    );
+
+    if (result.n1) await ns.showN1();
+    if (result.n2) await ns.showN2();
+    if (result.n3) {
+      await ns.showN3(longUnwornCount);
+      await ns.recordN3Fired();
+    }
+    if (result.n4) {
+      await ns.showN4(donationCandidates);
+      await ns.recordN4Fired();
+    }
+
+    // N5: refresh the weekly scheduled summary with current stats.
+    if (toggles.n5) {
+      final active =
+          items.where((i) => i.status == ItemStatus.inWardrobe).toList();
+      final cutoff = now.subtract(const Duration(days: 30));
+      final wornInLast30 = active
+          .where((i) =>
+              i.lastWornDate != null &&
+              !i.lastWornUnknown &&
+              i.lastWornDate!.isAfter(cutoff))
+          .length;
+      await ns.scheduleN5Weekly(
+        wornInLast30: wornInLast30,
+        dormant: active.length - wornInLast30,
+        forDonationReview: donationCandidates,
+        totalItems: active.length,
+      );
+    } else {
+      await ns.cancelN5();
+    }
   }
 
   // ── Mutations (wait for Supabase → confirm → update UI) ─────────────────
@@ -202,13 +305,30 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
       lastWornUnknown: false,
     );
     final dropped = checkAutoConditionDrop(probe);
-    if (dropped.condition != item.condition ||
-        dropped.conditionNextDrop != item.conditionNextDrop) {
+    final conditionChanged = dropped.condition != item.condition ||
+        dropped.conditionNextDrop != item.conditionNextDrop;
+    if (conditionChanged) {
       await itemRepo.updateCondition(
         itemId: item.id,
         condition: dropped.condition,
         conditionNextDrop: dropped.conditionNextDrop,
       );
+    }
+
+    // N6: notify if condition dropped in AUTO mode, toggle enabled, and plugin
+    // initialized (guard skips this in test environments).
+    if (conditionChanged &&
+        dropped.condition < item.condition &&
+        NotificationService.instance.isInitialized) {
+      final toggles = await ref.read(notificationSettingsProvider.future);
+      if (toggles.n6 &&
+          item.conditionReviewMode == ConditionReviewMode.auto) {
+        await NotificationService.instance.showN6(
+          item.id,
+          item.name,
+          conditionLabel(dropped.condition),
+        );
+      }
     }
 
     ref.invalidateSelf();
@@ -336,13 +456,29 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
         lastWornUnknown: false,
       );
       final dropped = checkAutoConditionDrop(probe);
-      if (dropped.condition != item.condition ||
-          dropped.conditionNextDrop != item.conditionNextDrop) {
+      final conditionChanged = dropped.condition != item.condition ||
+          dropped.conditionNextDrop != item.conditionNextDrop;
+      if (conditionChanged) {
         await itemRepo.updateCondition(
           itemId: item.id,
           condition: dropped.condition,
           conditionNextDrop: dropped.conditionNextDrop,
         );
+      }
+
+      // N6: notify if condition dropped in AUTO mode (same guard as logWorn).
+      if (conditionChanged &&
+          dropped.condition < item.condition &&
+          NotificationService.instance.isInitialized) {
+        final toggles = await ref.read(notificationSettingsProvider.future);
+        if (toggles.n6 &&
+            item.conditionReviewMode == ConditionReviewMode.auto) {
+          await NotificationService.instance.showN6(
+            item.id,
+            item.name,
+            conditionLabel(dropped.condition),
+          );
+        }
       }
     }
 

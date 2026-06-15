@@ -8,6 +8,7 @@ import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../data/models/item.dart';
 import '../../engine/donation/donation_rules.dart';
 import '../../providers/donation_providers.dart';
@@ -215,7 +216,6 @@ class _DonateTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final profile = ref.watch(profileProvider).asData?.value;
-    final initials = _initials(profile?.displayName ?? profile?.email);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
@@ -247,34 +247,10 @@ class _DonateTopBar extends ConsumerWidget {
             ),
           ],
           const Spacer(),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: c.primary,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          ProfileAvatarButton(source: profile?.displayName ?? profile?.email),
         ],
       ),
     );
-  }
-
-  String _initials(String? source) {
-    if (source == null || source.trim().isEmpty) return '?';
-    final parts = source.trim().split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts[1].characters.first)
-        .toUpperCase();
   }
 }
 

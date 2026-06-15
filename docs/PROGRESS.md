@@ -451,19 +451,113 @@ Claude Code via the `supabase` MCP server (OAuth, same account).
   - Branch 3 → DonatePage, Branch 4 → InsightsPage (both were PlaceholderPage).
   - 3 new top-level GoRoutes for sub-pages.
   - `flutter analyze` clean; 180 tests pass (8 new: 5 donation + 3 insights providers).
-- [ ] **Phase 8 — Profile/Settings + notifications + laundry**
+- [x] **Phase 8 — Profile/Settings + notifications + laundry** ✅ (Steps 1–5 complete)
+  **Step 1 ✅** — Settings hub + profile avatar:
+  - `features/profile/settings_page.dart` — Settings & Profile hub with nav tiles (My Profile /
+    Style Preferences / App Theme / Notification Settings / Data & Privacy / Help & About) + log-out
+    button. Profile avatar initials chip in Home/Outfit/Donate/Insights top-bars now routes here.
+  - `core/widgets/profile_avatar.dart` — reusable `ProfileAvatar` widget (initials circle, taps
+    to `/settings`). Used across all 4 top-bars.
+  - `lib/providers/theme_mode_provider.dart` — `themeModeProvider` (AsyncNotifierProvider,
+    SharedPreferences-backed). 8 TDD tests.
+  **Step 2 ✅** — Sub-screens (all manually tested):
+  - `features/profile/my_profile_page.dart` — editable Display Name (TextField, dirty-check,
+    `FocusScope.unfocus()` before save, snackbar on success), read-only Email + lock icon, 72px
+    avatar with initials. ConsumerStatefulWidget.
+  - `features/profile/style_prefs_edit_page.dart` — Preferred / Disliked colour pickers (reuses
+    onboarding `ColourPreferencePicker`), mutual exclusion, max-selection guard, canSave dirty-check.
+  - `features/profile/data_privacy_page.dart` — Your Data info, Sign Out (GestureDetector,
+    confirm sheet, signOut + go to login), Account Deletion info + danger notice.
+  - `features/profile/help_about_page.dart` — static app info (Version 1.0.0, Flutter 3.41,
+    Supabase). Pure StatelessWidget.
+  **Step 3 ✅** — App Theme screen + theme persistence:
+  - `features/profile/app_theme_screen.dart` — Light/Dark/System selector (`_ThemeTile`,
+    `GestureDetector`, selected = checkmark in `c.primary`). Reads `themeModeProvider`.
+  - `lib/app.dart` — `themeMode: ref.watch(themeModeProvider).asData?.value ?? ThemeMode.system`
+    (replaces hardcoded system). Dark/light switches immediately on selection.
+  - `settings_page.dart` — App Theme nav tile subtitle dynamically reflects current mode
+    ('Light' / 'Dark' / 'System default') via `_themeLabel(themeMode)`.
+  - **Tap-effect fix:** All 4 `InkWell`s introduced in new Settings files replaced with
+    `GestureDetector(behavior: HitTestBehavior.opaque)` to match the rest of the app (no
+    ripple leaking past rounded card edges via the Scaffold `Material` ancestor).
+  **Step 4 ✅** — Laundry auto-return (TDD, manually tested):
+  - `lib/services/laundry_return_service.dart` — `LaundryReturnService.isDue(started, cycleDays, now)`
+    (pure, calendar-day diff, `>= cycleDays`) + `run(userId, laundryCycleDays, now)` (fetches
+    LAUNDRY items, calls `returnFromLaundry` for due ones, returns count).
+  - `lib/data/repositories/item_repository.dart` — `returnFromLaundry(itemId)`: atomically sets
+    `status = IN_WARDROBE` and `laundry_started_at = null` in one DB call (separate from
+    `updateStatus` which cannot null-clear the field).
+  - `WardrobeNotifier.build()` — awaits `profileProvider.future` for `laundryCycleDays`, runs
+    `LaundryReturnService.run()` before `getWardrobeItems`. Auto-return fires on every wardrobe
+    load (app open, tab switch, pull-to-refresh).
+  - **Test fixes:** 5 provider test files updated to add `profileProvider.overrideWith(_StubProfileNotifier.new)`
+    and `getLaundryItems` stubs after the new `WardrobeNotifier.build()` dependency was introduced.
+    `home_snapshot_test.dart` additionally adds `await c.read(wardrobeProvider.future)` before
+    reading the snapshot (extra async steps made the wardrobe settle later).
+  - 15 service tests + 210 total tests pass; `flutter analyze` clean.
+  **Step 5 ✅** — Local notifications N1–N6 (TDD, 34 new tests → 244 total):
+  - `lib/services/notification_eligibility.dart` — pure logic, 28 tests. `NotificationToggles`
+    (6 booleans, defaults N1/N2/N3/N5=ON, N4/N6=OFF), `NotificationResult`, `NotificationEligibility.evaluate()`.
+    Rules: N1 fires `daysSinceLastLog==1` (suppressed by N2), N2 fires `daysSinceLastLog>=3`,
+    N3 `longUnwornCount>0` + 7-day throttle, N4 `donationCandidates>0` + 7-day throttle,
+    N6 `conditionDropped && isAutoMode`.
+  - `lib/providers/notification_settings_provider.dart` — `NotificationSettingsNotifier`
+    (AsyncNotifierProvider, SharedPreferences-backed, setN1–setN6), 6 tests.
+  - `lib/services/notification_service.dart` — singleton `NotificationService.instance`
+    wrapping `flutter_local_notifications ^21.0.0`. `initialize()` sets up Android channel +
+    permission + `tz_data.initializeTimeZones()`. `showN1/N2/N3/N4/N6`, `scheduleN5Weekly()`
+    (one-shot to next Sunday 20:00 local via `zonedSchedule`), `recordN3/N4Fired()` + timestamps.
+    `isInitialized` guard silently skips all calls in test environments.
+  - `lib/features/profile/notification_settings_page.dart` — full 6-toggle UI replacing stub.
+    `_SectionHeader` + `_ToggleTile` (GestureDetector + Switch, context.colors.X). Sections:
+    Logging Reminders (N1 Daily Reminder, N2 Inactive Warning), Wardrobe Insights (N3–N5),
+    Item Updates (N6).
+  - `WardrobeNotifier.build()` — `_checkNotificationsOnOpen()` fires once per notifier lifetime
+    (`_sessionChecked` flag). Computes `daysSinceLastLog` from item `lastWornDate` fields (no
+    extra API call), `longUnwornCount` via `isLongUnused`, `donationCandidates`, then evaluates
+    eligibility and fires N1–N4. Reschedules N5 weekly summary with fresh stats.
+  - `WardrobeNotifier.logWorn()` — N6 inline: fires after condition drop if toggle enabled + AUTO.
+  - `lib/main.dart` — calls `NotificationService.instance.initialize(onTap: ...)` before `runApp`;
+    tap routes to Insights (`appRouter.go(Routes.shellInsights)`).
+  - `pubspec.yaml` — added `timezone: ^0.11.0` (required by flutter_local_notifications v21 for
+    `zonedSchedule` with `TZDateTime`).
+  - `AndroidManifest.xml` — added `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `WAKE_LOCK`,
+    `RECEIVE_BOOT_COMPLETED` permissions.
+  - **244 tests pass; `flutter analyze` clean.**
+  **Step 5 post-session refinements (2026-06-15) — all manually tested and confirmed:**
+  - **B1:** `_checkNotificationsOnOpen` cancels pending N5 when toggle is OFF (`else { await ns.cancelN5(); }`)
+  - **B2:** N6 tap → Item Detail via new `/item-detail-id/:id` GoRoute + `_ItemDetailByIdPage`
+    adapter widget (watches `wardrobeProvider`, looks up item by UUID, renders `ItemDetailPage`).
+    N6 payload changed to `'item:<uuid>'`.
+  - **B3:** N6 check wired in `logOutfitWorn` item loop — same pattern as `logWorn`.
+  - **Tap routing locked (DECISIONS N5):** N1/N2 → Wardrobe (payload `'wardrobe'`),
+    N4 → Donate (payload `'donate'`), N3/N5 → Insights (null payload),
+    N6 → Item Detail (payload `'item:<uuid>'`). Routed in `main.dart` onTap by prefix.
+  - **N1 body copy:** "Did you wear something yesterday? Log it to keep your wardrobe history updated."
+  - **N6 body copy:** "[item] is now in [label] condition. Tap to review."
+  - **Onboarding page 4:** added hint below feature card — "You can customise which alerts you
+    receive anytime in Settings → Notifications." (consistent with pages 2–3 pattern).
+  - **Background notifications:** documented as known limitation / future enhancement in DECISIONS N4.
+    N1–N4 fire on app-open only; WorkManager needed for fixed-time background firing — deferred.
+  - Stale `// Real OS permission request is wired in Phase 8.` comment removed from onboarding.
+  - **244 tests pass; `flutter analyze` clean. Phase 8 fully complete.**
 - [ ] **Phase 9 — Polish + end-to-end + real-device run**
 
 ## How to resume (next action)
 
-**NEXT: Phase 8 — Profile/Settings + notifications + laundry.** Phases 0–7 fully done.
-**187 tests pass, `flutter analyze` clean.** Phase 8 (per plan): **Settings hub + sub-screens**
-(`features/profile/`: settings, my_profile, style_prefs_edit, app_theme_screen,
-notification_settings, data_privacy, help_about), **theme persisted to SharedPreferences**,
-**local notifications N1–N6** (`services/notification_service.dart`; decision M2: N1 ~08:00
-local, N5 Sunday ~18:00 — confirm with user before building), **laundry auto-return on app
-open** (`services/laundry_service.dart`). The Home page top-bar shows a profile avatar stub
-(snackbar) currently — Phase 8 wires it to the real Settings hub.
+**NEXT: Phase 9 (Polish + end-to-end + real-device run).** Phase 8 fully complete including all
+post-session notification refinements. **244 tests pass, `flutter analyze` clean.**
+
+Phase 8 notification manual testing — all confirmed working (2026-06-15):
+- ✅ N6 Case A: direct Log Wear triggers condition drop → N6 fires → tap → Item Detail
+- ✅ N6 Case B: Log Outfit triggers condition drop → N6 fires → tap → Item Detail
+- ✅ N5: toggling OFF cancels pending OS notification; toggling ON reschedules on next app open
+- ✅ N1/N2 tap → Wardrobe tab; N4 tap → Donate tab; N3/N5 tap → Insights tab
+- ⬜ N1/N2/N3: app-open only — fires when daysSinceLastLog matches; N3 throttled 7 days
+- ⬜ N5 schedule: set device to Saturday → open app → advance to Sunday 19:59 → fires at 20:00
+
+**Phase 9:** app-resume re-trigger for laundry (`AppLifecycleListener`), image flicker polish,
+bottom-padding harmonisation, real-device run, end-to-end testing.
 
 ### Phase 7 — behaviour/UI DELTAS a new chat MUST know
 These were authored/locked during Phase 7 (Donate + Insights) and are the source of truth:

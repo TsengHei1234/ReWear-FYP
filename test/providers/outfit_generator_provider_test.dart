@@ -77,6 +77,7 @@ void main() {
   Future<ProviderContainer> makeContainer() async {
     when(() => itemRepo.getWardrobeItems(any()))
         .thenAnswer((_) async => wardrobe);
+    when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
     when(() => profileRepo.getProfile(any())).thenAnswer(
         (_) async => const Profile(id: 'user-1'));
     when(() => eventRepo.logEvent(any())).thenAnswer((_) async => _dummyEvent);

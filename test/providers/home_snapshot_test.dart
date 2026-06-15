@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rewear/core/constants/enums.dart';
 import 'package:rewear/data/models/item_event.dart';
+import 'package:rewear/data/models/profile.dart';
 import 'package:rewear/data/repositories/item_event_repository.dart';
 import 'package:rewear/data/repositories/item_repository.dart';
 import 'package:rewear/providers/home_providers.dart';
+import 'package:rewear/providers/profile_providers.dart';
 import 'package:rewear/providers/wardrobe_providers.dart';
 
 import '../engine/support/item_factory.dart';
@@ -13,6 +15,11 @@ import '../engine/support/item_factory.dart';
 class MockItemRepository extends Mock implements ItemRepository {}
 
 class MockItemEventRepository extends Mock implements ItemEventRepository {}
+
+class _StubProfileNotifier extends ProfileNotifier {
+  @override
+  Future<Profile?> build() async => null;
+}
 
 void main() {
   late MockItemRepository itemRepo;
@@ -31,6 +38,7 @@ void main() {
 
     when(() => itemRepo.getWardrobeItems(any()))
         .thenAnswer((_) async => [wornRecently, neverWorn]);
+    when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
     when(() => eventRepo.getEventsInRange(
           userId: any(named: 'userId'),
           from: any(named: 'from'),
@@ -50,9 +58,11 @@ void main() {
       currentUserIdProvider.overrideWithValue('u'),
       itemRepositoryProvider.overrideWithValue(itemRepo),
       itemEventRepositoryProvider.overrideWithValue(eventRepo),
+      profileProvider.overrideWith(_StubProfileNotifier.new),
     ]);
     addTearDown(c.dispose);
     c.listen(homeSnapshotProvider, (_, _) {}); // keep alive (autoDispose)
+    await c.read(wardrobeProvider.future); // settle wardrobe before snapshot reads it
 
     final stats = await c.read(homeSnapshotProvider.future);
 

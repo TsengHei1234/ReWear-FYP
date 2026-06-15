@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rewear/core/constants/enums.dart';
+import 'package:rewear/data/models/profile.dart';
 import 'package:rewear/data/repositories/item_event_repository.dart';
 import 'package:rewear/data/repositories/item_repository.dart';
 import 'package:rewear/providers/donation_providers.dart';
+import 'package:rewear/providers/profile_providers.dart';
 import 'package:rewear/providers/wardrobe_providers.dart';
 
 import '../engine/support/item_factory.dart';
@@ -12,6 +14,11 @@ import '../engine/support/item_factory.dart';
 class MockItemRepository extends Mock implements ItemRepository {}
 
 class MockItemEventRepository extends Mock implements ItemEventRepository {}
+
+class _StubProfileNotifier extends ProfileNotifier {
+  @override
+  Future<Profile?> build() async => null;
+}
 
 void main() {
   late MockItemRepository itemRepo;
@@ -25,10 +32,12 @@ void main() {
   ProviderContainer makeContainer(List items) {
     when(() => itemRepo.getWardrobeItems(any()))
         .thenAnswer((_) async => items.cast());
+    when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
     final c = ProviderContainer(overrides: [
       currentUserIdProvider.overrideWithValue('u'),
       itemRepositoryProvider.overrideWithValue(itemRepo),
       itemEventRepositoryProvider.overrideWithValue(eventRepo),
+      profileProvider.overrideWith(_StubProfileNotifier.new),
     ]);
     addTearDown(c.dispose);
     return c;
@@ -134,11 +143,13 @@ void main() {
         currentUserIdProvider.overrideWithValue('u'),
         itemRepositoryProvider.overrideWithValue(itemRepo),
         itemEventRepositoryProvider.overrideWithValue(eventRepo),
+        profileProvider.overrideWith(_StubProfileNotifier.new),
       ]);
       addTearDown(c.dispose);
       // wardrobeProvider also calls getWardrobeItems, so stub it
       when(() => itemRepo.getWardrobeItems(any()))
           .thenAnswer((_) async => [soon, later]);
+      when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
       c.listen(keptItemsPageProvider, (_, _) {});
       final items = await c.read(keptItemsPageProvider.future);
 
@@ -173,11 +184,13 @@ void main() {
       // wardrobeProvider itself only returns non-donated items
       when(() => itemRepo.getWardrobeItems(any()))
           .thenAnswer((_) async => []);
+      when(() => itemRepo.getLaundryItems(any())).thenAnswer((_) async => []);
 
       final c = ProviderContainer(overrides: [
         currentUserIdProvider.overrideWithValue('u'),
         itemRepositoryProvider.overrideWithValue(itemRepo),
         itemEventRepositoryProvider.overrideWithValue(eventRepo),
+        profileProvider.overrideWith(_StubProfileNotifier.new),
       ]);
       addTearDown(c.dispose);
       c.listen(donationHistoryProvider, (_, _) {});

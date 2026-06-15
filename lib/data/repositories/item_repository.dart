@@ -192,6 +192,15 @@ class ItemRepository {
     }).eq('id', itemId);
   }
 
+  /// Returns an item from laundry: sets status to IN_WARDROBE and clears
+  /// laundry_started_at in one update. Called by [LaundryReturnService].
+  Future<void> returnFromLaundry(String itemId) async {
+    await _client.from('items').update({
+      'status': ItemStatus.inWardrobe.value,
+      'laundry_started_at': null,
+    }).eq('id', itemId);
+  }
+
   /// Fetches items currently in LAUNDRY status for the given user.
   /// Used by laundry auto-return on app open.
   Future<List<Item>> getLaundryItems(String userId) async {

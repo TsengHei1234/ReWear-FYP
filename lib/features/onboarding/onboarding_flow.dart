@@ -241,13 +241,19 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           ),
           const SizedBox(height: 20),
           _featureCard(),
+          const SizedBox(height: 12),
+          Text(
+            'You can customise which alerts you receive anytime in '
+            'Settings → Notifications.',
+            style: AppText.bodyS.copyWith(
+                color: context.colors.textTertiary, height: 1.5),
+          ),
           const SizedBox(height: 20),
           const ProgressDots(count: _pageCount, activeIndex: 3),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              // Real OS permission request is wired in Phase 8.
               onPressed: _saving ? null : _finish,
               child: _saving
                   ? const ButtonSpinner()

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_color_scheme.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../providers/outfit_generator_provider.dart';
 import '../../providers/profile_providers.dart';
 import '../../routing/app_router.dart';
@@ -56,7 +57,6 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final profile = ref.watch(profileProvider).asData?.value;
-    final initials = _initials(profile?.displayName ?? profile?.email);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
@@ -76,33 +76,10 @@ class _TopBar extends ConsumerWidget {
             onPressed: () => context.push(Routes.outfitHistory),
           ),
           const SizedBox(width: 4),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: c.primary,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          ProfileAvatarButton(
+              source: profile?.displayName ?? profile?.email),
         ],
       ),
     );
-  }
-
-  String _initials(String? source) {
-    if (source == null || source.trim().isEmpty) return '?';
-    final parts = source.trim().split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts[1].characters.first)
-        .toUpperCase();
   }
 }

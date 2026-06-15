@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/badge_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../data/models/item.dart';
 import '../../engine/badges/badge_engine.dart';
 import '../../engine/daily/daily_rotation_display.dart';
@@ -199,35 +200,12 @@ class _TopBar extends StatelessWidget {
                     color: c.textPrimary)),
           ),
           const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Profile & Settings arrives in a later update')),
-            ),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: c.primary, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: Text(_initials(displayName),
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
-            ),
-          ),
+          ProfileAvatarButton(source: displayName),
         ],
       ),
     );
   }
 
-  String _initials(String? source) {
-    if (source == null || source.trim().isEmpty) return '?';
-    final parts = source.trim().split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts[1].characters.first)
-        .toUpperCase();
-  }
 }
 
 // ── Suggestion card ───────────────────────────────────────────────────────
