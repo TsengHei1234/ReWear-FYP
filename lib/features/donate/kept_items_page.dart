@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_color_scheme.dart';
@@ -9,6 +10,7 @@ import '../../core/widgets/confirm_sheet.dart';
 import '../../data/models/item.dart';
 import '../../providers/donation_providers.dart';
 import '../../providers/wardrobe_providers.dart';
+import '../../routing/app_router.dart';
 
 /// Kept Items screen (FE §27): items deferred from donation, with Undo Keep.
 ///
@@ -169,10 +171,13 @@ class _KeptItemRow extends ConsumerWidget {
 
     final keptLabel = _keptLabel(item.keptUntil);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push(Routes.itemDetail, extra: item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
           // Photo
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
@@ -184,6 +189,8 @@ class _KeptItemRow extends ConsumerWidget {
                       imageUrl: imageUrl,
                       cacheKey: cacheKey,
                       fit: BoxFit.cover,
+                      memCacheWidth: 150,
+                      memCacheHeight: 150,
                       placeholder: (_, _) =>
                           Container(color: c.surface2),
                       errorWidget: (_, _, _) =>
@@ -250,7 +257,10 @@ class _KeptItemRow extends ConsumerWidget {
               ),
             ),
           ),
-        ],
+          const SizedBox(width: 6),
+          Icon(Icons.chevron_right_rounded, size: 14, color: c.chevron),
+          ],
+        ),
       ),
     );
   }

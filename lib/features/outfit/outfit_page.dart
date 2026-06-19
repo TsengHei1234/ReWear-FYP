@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_color_scheme.dart';
-import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/main_page_header.dart';
 import '../../providers/outfit_generator_provider.dart';
 import '../../providers/profile_providers.dart';
 import '../../routing/app_router.dart';
@@ -22,13 +22,30 @@ class OutfitPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final tabIndex = ref.watch(outfitTabIndexProvider);
+    final profile = ref.watch(profileProvider).asData?.value;
     return Scaffold(
       backgroundColor: c.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _TopBar(),
+            MainPageHeader(
+              title: 'Outfit',
+              action: Tooltip(
+                message: 'Outfit history',
+                child: GestureDetector(
+                  onTap: () => context.push(Routes.outfitHistory),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    child: Icon(Icons.history, size: 22, color: c.textSecondary),
+                  ),
+                ),
+              ),
+              avatarSource: profile?.displayName ?? profile?.email,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: OutfitSegmentedControl(
@@ -52,34 +69,3 @@ class OutfitPage extends ConsumerWidget {
   }
 }
 
-class _TopBar extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final profile = ref.watch(profileProvider).asData?.value;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          Text(
-            'Outfit',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: c.textPrimary,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(Icons.history, color: c.textSecondary),
-            tooltip: 'Outfit history',
-            onPressed: () => context.push(Routes.outfitHistory),
-          ),
-          const SizedBox(width: 4),
-          ProfileAvatarButton(
-              source: profile?.displayName ?? profile?.email),
-        ],
-      ),
-    );
-  }
-}

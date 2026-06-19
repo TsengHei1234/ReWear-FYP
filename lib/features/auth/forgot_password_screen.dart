@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +33,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   Future<void> _send() async {
     if (!_formKey.currentState!.validate()) return;
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.every((r) => r == ConnectivityResult.none)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No internet connection. Check your connection and try again.'),
+        duration: Duration(seconds: 3),
+      ));
+      return;
+    }
     setState(() => _loading = true);
     try {
       await ref.read(authRepositoryProvider).sendPasswordReset(_email.text.trim());
@@ -118,7 +128,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   children: [
                     const TextSpan(text: 'Remembered it? '),
                     TextSpan(
-                      text: 'Back to Sign In',
+                      text: 'Go back',
                       style: AppText.bodyS.copyWith(
                           color: context.colors.primary, fontWeight: FontWeight.w600),
                     ),
@@ -136,7 +146,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Column(
       children: [
         const SizedBox(height: 24),
-        Text('Check your email for a reset link.',
+        Text('Check your email on this device for a reset link.',
             textAlign: TextAlign.center,
             style: AppText.bodyM.copyWith(color: context.colors.textSecondary)),
         const SizedBox(height: 24),
@@ -144,7 +154,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () => context.pop(),
-            child: const Text('Back to Sign In'),
+            child: const Text('Done'),
           ),
         ),
       ],

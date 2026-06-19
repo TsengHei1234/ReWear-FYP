@@ -9,13 +9,14 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/badge_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
-import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/main_page_header.dart';
 import '../../data/models/item.dart';
 import '../../engine/badges/badge_engine.dart';
 import '../../engine/daily/daily_rotation_display.dart';
 import '../../engine/scoring/frs.dart';
 import '../../providers/home_providers.dart';
 import '../../providers/profile_providers.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../providers/wardrobe_providers.dart';
 import '../../routing/app_router.dart';
 import '../outfit/build_outfit_action.dart';
@@ -51,9 +52,16 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final items = ref.watch(wardrobeProvider).asData?.value ?? const <Item>[];
+    final wardrobeAsync = ref.watch(wardrobeProvider);
+    final items = wardrobeAsync.asData?.value ?? const <Item>[];
     final profile = ref.watch(profileProvider).asData?.value;
     final now = DateTime.now();
+
+    final displayName = profile?.displayName ?? profile?.email;
+    final h = now.hour;
+    final greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    final firstName = (displayName ?? '').trim().split(RegExp(r'\s+')).first;
+    final greetingTitle = firstName.isEmpty ? greeting : '$greeting, $firstName';
 
     final ranked = rankDailyRotation(
       items,
@@ -69,11 +77,19 @@ class _HomePageState extends ConsumerState<HomePage> {
       backgroundColor: c.background,
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+        child: Column(
           children: [
-            _TopBar(displayName: profile?.displayName ?? profile?.email),
-            const SizedBox(height: 12),
+            MainPageHeader(
+              title: greetingTitle,
+              avatarSource: displayName,
+            ),
+            const SizedBox(height: 4),
+            if ((wardrobeAsync.isLoading || wardrobeAsync.hasError) && items.isEmpty)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                children: [
 
             // Section 1 — Occasion chips
             const Padding(
@@ -148,6 +164,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: _WardrobeSnapshotCard(),
             ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -156,56 +175,13 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _wear(Item item) async {
     final ok = await showLogWearSheet(context, item.name);
-    if (!ok) return;
-    await ref.read(wardrobeProvider.notifier).logWorn(item);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Logged a wear for ${item.name}'),
-        duration: const Duration(seconds: 2),
-      ),
+    if (!ok || !mounted) return;
+    await runMutation(
+      context,
+      action: () => ref.read(wardrobeProvider.notifier).logWorn(item),
+      successMessage: 'Logged a wear for ${item.name}',
     );
   }
-}
-
-// ── Top bar ───────────────────────────────────────────────────────────────
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({this.displayName});
-  final String? displayName;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final h = DateTime.now().hour;
-    final greeting = h < 12
-        ? 'Good morning'
-        : h < 17
-            ? 'Good afternoon'
-            : 'Good evening';
-    final first = (displayName ?? '').trim().split(RegExp(r'\s+')).first;
-    final title = first.isEmpty ? greeting : '$greeting, $first';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: c.textPrimary)),
-          ),
-          const SizedBox(width: 12),
-          ProfileAvatarButton(source: displayName),
-        ],
-      ),
-    );
-  }
-
 }
 
 // ── Suggestion card ───────────────────────────────────────────────────────
@@ -269,6 +245,8 @@ class _SuggestionCard extends ConsumerWidget {
                             ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
                             : null,
                         fit: BoxFit.cover,
+                        memCacheWidth: 800,
+                        memCacheHeight: 800,
                       ),
                 Positioned(
                   left: 10,

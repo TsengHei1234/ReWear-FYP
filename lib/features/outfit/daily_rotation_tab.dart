@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_color_scheme.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../data/models/item.dart';
@@ -152,17 +153,14 @@ class _DailyRotationTabState extends ConsumerState<DailyRotationTab> {
 
   Future<void> _wear(ItemScore scored) async {
     final ok = await showLogWearSheet(context, scored.item.name);
-    if (!ok) return;
-    await ref.read(wardrobeProvider.notifier).logWorn(
-          scored.item,
-          source: ItemEventSource.dailyRotation,
-        );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Logged a wear for ${scored.item.name}'),
-        duration: const Duration(seconds: 2),
-      ),
+    if (!ok || !mounted) return;
+    await runMutation(
+      context,
+      action: () => ref.read(wardrobeProvider.notifier).logWorn(
+            scored.item,
+            source: ItemEventSource.dailyRotation,
+          ),
+      successMessage: 'Logged a wear for ${scored.item.name}',
     );
   }
 
@@ -175,13 +173,20 @@ class _DailyRotationTabState extends ConsumerState<DailyRotationTab> {
       confirmLabel: 'Skip',
       isDestructive: true,
     );
-    if (!confirmed) return;
-    await ref.read(wardrobeProvider.notifier).logSkipped(
-          scored.item,
-          source: ItemEventSource.dailyRotation,
-        );
-    if (!mounted) return;
-    setState(() => _sessionExcluded.add(scored.item.id));
+    if (!confirmed || !mounted) return;
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(wardrobeProvider.notifier).logSkipped(
+              scored.item,
+              source: ItemEventSource.dailyRotation,
+            );
+        succeeded = true;
+      },
+      successMessage: '${scored.item.name} skipped for today',
+    );
+    if (mounted && succeeded) setState(() => _sessionExcluded.add(scored.item.id));
   }
 }
 

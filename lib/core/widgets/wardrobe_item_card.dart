@@ -164,6 +164,14 @@ class WardrobeItemCard extends StatelessWidget {
                             icon: Icons.auto_fix_high_outlined,
                             enabled: isAvailable,
                             onTap: onBuildOutfit!,
+                            onDisabledTap: () =>
+                                ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Unable to build outfit. Item is ${_statusLabel(item.status).toLowerCase()}.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 6),
                         ],
@@ -172,6 +180,14 @@ class WardrobeItemCard extends StatelessWidget {
                             icon: Icons.check_rounded,
                             enabled: isAvailable,
                             onTap: onLogWear!,
+                            onDisabledTap: () =>
+                                ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Unable to log wear. Item is ${_statusLabel(item.status).toLowerCase()}.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -203,6 +219,8 @@ class WardrobeItemCard extends StatelessWidget {
             ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
             : null,
         fit: BoxFit.cover,
+        memCacheWidth: 600,
+        memCacheHeight: 600,
         placeholder: (_, _) => _photoPlaceholder(c),
         errorWidget: (_, _, _) => _photoPlaceholder(c),
       );
@@ -244,17 +262,19 @@ class _QuickActionButton extends StatelessWidget {
     required this.icon,
     required this.enabled,
     required this.onTap,
+    this.onDisabledTap,
   });
 
   final IconData icon;
   final bool enabled;
   final VoidCallback onTap;
+  final VoidCallback? onDisabledTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: enabled ? onTap : onDisabledTap,
       child: Container(
         width: 28,
         height: 28,

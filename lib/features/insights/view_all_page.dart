@@ -198,6 +198,8 @@ class _ViewAllRow extends ConsumerWidget {
                         imageUrl: imageUrl,
                         cacheKey: cacheKey,
                         fit: BoxFit.cover,
+                        memCacheWidth: 150,
+                        memCacheHeight: 150,
                         placeholder: (_, _) =>
                             Container(color: c.surface2),
                         errorWidget: (_, _, _) =>

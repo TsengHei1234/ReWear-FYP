@@ -541,12 +541,45 @@ Claude Code via the `supabase` MCP server (OAuth, same account).
     N1–N4 fire on app-open only; WorkManager needed for fixed-time background firing — deferred.
   - Stale `// Real OS permission request is wired in Phase 8.` comment removed from onboarding.
   - **244 tests pass; `flutter analyze` clean. Phase 8 fully complete.**
-- [ ] **Phase 9 — Polish + end-to-end + real-device run**
+- [x] **Phase 9 — Polish + real-device UX fixes** ✅ (2026-06-19)
+  **Cold start fixes (Home + Wardrobe):**
+  - Home: `wardrobeProvider` watched as `wardrobeAsync`; when `(isLoading || hasError) && items.isEmpty`
+    the entire content area (chips, suggestions, snapshot) is replaced with a single centered
+    `CircularProgressIndicator`. Header/greeting always visible. No misleading 0-data shown.
+  - Wardrobe: `loading:` and `error:` callbacks now include `MainPageHeader` so the header is
+    always present. Spinner / error text in `Expanded` below.
+  **Add 11 — Kept Items tap navigation:**
+  - `_KeptItemRow` wrapped in `GestureDetector(behavior: HitTestBehavior.opaque)` → pushes to
+    Item Detail. Chevron at far right (after Undo Keep button, `SizedBox(width: 4)` gap), matching
+    `_AttentionRow` pattern from Insights. Added `go_router` + `app_router` imports.
+  **Add 12 — HitTestBehavior.opaque on tappable rows:**
+  - `_DonationHistoryRow` and `_AttentionRow` (insights_page.dart): `behavior: HitTestBehavior.opaque`
+    added to existing `GestureDetector`. Transparent padding areas now register taps.
+  **Add 13 — Donate badge → inline text format:**
+  - Removed `titleBadge` (red circle) from `MainPageHeader` in DonatePage entirely.
+  - `_HeaderCard`: ` ·` appended to "Donation Candidates" title string (normal text color);
+    count shown as separate `Text` with `AppColors.danger` ("N item/items"). See P9-B.
+  **Add 14 — My Profile keyboard reappear after Save:**
+  - `_save()` adds `WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) FocusScope.of(context).unfocus(); })`
+    after `runMutation`. Post-frame callback fires AFTER Flutter's focus-restoration from the
+    dialog pop, correctly keeping keyboard down. See P9-D.
+  **Add 10 — Full offline overlay: DEFERRED to Phase 11.** See P9-E in DECISIONS.md.
+  - **244 tests pass; `flutter analyze` clean.**
+
+- [ ] **Phase 10 — Polish Outfit Generator**
+- [ ] **Phase 11 — Supabase Realtime + offline overlay**
 
 ## How to resume (next action)
 
-**NEXT: Phase 9 (Polish + end-to-end + real-device run).** Phase 8 fully complete including all
-post-session notification refinements. **244 tests pass, `flutter analyze` clean.**
+**NEXT: Phase 10 — Polish Outfit Generator.** Phase 9 complete. **244 tests pass, `flutter analyze` clean.**
+
+Phase 9 manual testing confirmed (2026-06-19):
+- ✅ Home cold start: spinner shown (not "Add items") while wardrobe loads
+- ✅ Wardrobe cold start: header always visible during loading/error
+- ✅ Kept Items: tap row → Item Detail; chevron at far right after Undo Keep button
+- ✅ Donation History + Insights attention rows: tap in padding gap → Item Detail
+- ✅ Donate page: "Donation Candidates · N items" (dot = normal color, count = red)
+- ✅ My Profile: keyboard stays down after Save Changes (incl. Android back-button flow)
 
 Phase 8 notification manual testing — all confirmed working (2026-06-15):
 - ✅ N6 Case A: direct Log Wear triggers condition drop → N6 fires → tap → Item Detail
@@ -556,8 +589,14 @@ Phase 8 notification manual testing — all confirmed working (2026-06-15):
 - ⬜ N1/N2/N3: app-open only — fires when daysSinceLastLog matches; N3 throttled 7 days
 - ⬜ N5 schedule: set device to Saturday → open app → advance to Sunday 19:59 → fires at 20:00
 
-**Phase 9:** app-resume re-trigger for laundry (`AppLifecycleListener`), image flicker polish,
-bottom-padding harmonisation, real-device run, end-to-end testing.
+**Phase 10 goal:** Outfit Generator UI/UX polish. User will bring specific questions, issues,
+and a new feature idea at session start. Read this file, DECISIONS.md, and
+`docs/features/outfit_generator_tab_contract.md` before doing anything.
+
+**Phase 11 goal (after Phase 10):**
+- Supabase Realtime subscription for one key live count (TBD — user to specify)
+- Full offline overlay (Add 10, deferred from Phase 9) — discuss with mentor first (see P9-E)
+- Data freshness on app resume (S2 Option A or B, see DECISIONS.md)
 
 ### Phase 7 — behaviour/UI DELTAS a new chat MUST know
 These were authored/locked during Phase 7 (Donate + Insights) and are the source of truth:

@@ -1,5 +1,7 @@
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/supabase/supabase_client.dart';
@@ -31,6 +33,26 @@ Future<void> main() async {
       }
     },
   );
+
+  // Password-recovery deep link: rewear://reset-callback?code=...
+  // app_links captures the URI; getSessionFromUrl exchanges the PKCE code and
+  // emits AuthChangeEvent.passwordRecovery on onAuthStateChange.
+  if (SupabaseService.isReady) {
+    final appLinks = AppLinks();
+    appLinks.uriLinkStream.listen((uri) async {
+      if (uri.scheme == 'rewear' && uri.host == 'reset-callback') {
+        try {
+          await Supabase.instance.client.auth.getSessionFromUrl(uri);
+        } catch (_) {}
+      }
+    });
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        appRouter.go(Routes.setNewPassword);
+      }
+    });
+  }
 
   runApp(const ProviderScope(child: ReWearApp()));
 }

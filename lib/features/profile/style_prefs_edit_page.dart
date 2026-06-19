@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_color_scheme.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../providers/profile_providers.dart';
 import '../onboarding/widgets/colour_preference_picker.dart';
 
@@ -19,7 +20,6 @@ class StylePrefsEditPage extends ConsumerStatefulWidget {
 class _StylePrefsEditPageState extends ConsumerState<StylePrefsEditPage> {
   late Set<String> _preferred;
   late Set<String> _disliked;
-  bool _isSaving = false;
 
   @override
   void initState() {
@@ -57,33 +57,23 @@ class _StylePrefsEditPageState extends ConsumerState<StylePrefsEditPage> {
   Future<void> _save() async {
     final profile = ref.read(profileProvider).asData?.value;
     if (profile == null) return;
-    setState(() => _isSaving = true);
-    try {
-      await ref.read(profileProvider.notifier).updateProfile(
+    await runMutation(
+      context,
+      action: () => ref.read(profileProvider.notifier).updateProfile(
             profile.copyWith(
               preferredColours: _preferred.toList(),
               dislikedColours: _disliked.toList(),
             ),
-          );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Preferences saved')));
-      setState(() => _isSaving = false);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Failed to save — please try again.')));
-      setState(() => _isSaving = false);
-    }
+          ),
+      successMessage: 'Preferences saved',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final profile = ref.watch(profileProvider).asData?.value;
-    final canSave = !_isSaving &&
-        profile != null &&
+    final canSave = profile != null &&
         (!_eq(_preferred, profile.preferredColours.toSet()) ||
             !_eq(_disliked, profile.dislikedColours.toSet()));
 
@@ -141,18 +131,10 @@ class _StylePrefsEditPageState extends ConsumerState<StylePrefsEditPage> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
             ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text(
-                    'Save Preferences',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
+            child: const Text(
+              'Save Preferences',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

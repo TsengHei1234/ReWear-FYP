@@ -9,7 +9,8 @@ import '../../core/widgets/app_filter_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../core/widgets/wardrobe_item_card.dart';
 import '../../data/models/item.dart';
-import '../../core/widgets/profile_avatar.dart';
+import '../../core/utils/mutation_helper.dart';
+import '../../core/widgets/main_page_header.dart';
 import '../../providers/profile_providers.dart';
 import '../../providers/wardrobe_providers.dart';
 import '../../routing/app_router.dart';
@@ -167,12 +168,34 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: wardrobeAsync.when(
-          loading: () => Center(
-            child: CircularProgressIndicator(color: c.primary),
+          loading: () => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MainPageHeader(
+                title: 'Wardrobe',
+                avatarSource: profile?.displayName ?? profile?.email,
+              ),
+              Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(color: c.primary),
+                ),
+              ),
+            ],
           ),
-          error: (e, _) => Center(
-            child: Text('Error loading wardrobe: $e',
-                style: TextStyle(color: c.textSecondary)),
+          error: (e, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MainPageHeader(
+                title: 'Wardrobe',
+                avatarSource: profile?.displayName ?? profile?.email,
+              ),
+              Expanded(
+                child: Center(
+                  child: Text('Could not load wardrobe',
+                      style: TextStyle(color: c.textSecondary)),
+                ),
+              ),
+            ],
           ),
           data: (allItems) {
             final filtered = _applyFilters(allItems);
@@ -181,44 +204,15 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
                 Column(
                   children: [
                     // ── Fixed top section (does NOT scroll) ──────
-                    // ── Top bar ──────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Wardrobe',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  '${filtered.length} items',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: c.textTertiary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ProfileAvatarButton(
-                            source: profile?.displayName ?? profile?.email,
-                          ),
-                        ],
-                      ),
+                    MainPageHeader(
+                      title: 'Wardrobe',
+                      subtitle: '${allItems.length} items',
+                      avatarSource: profile?.displayName ?? profile?.email,
                     ),
 
                     // ── Search bar ───────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: _SearchBar(
                         controller: _searchController,
                         focusNode: _searchFocusNode,
@@ -282,29 +276,52 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
                       ),
                     ),
 
+                    const SizedBox(height: 8),
+
                     // ── Grid or empty state (ONLY this scrolls) ──
                     Expanded(
-                      child: filtered.isEmpty
-                          ? _EmptyState(hasItems: allItems.isNotEmpty)
-                          : GridView.builder(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.64,
+                      child: RefreshIndicator(
+                        displacement: 16,
+                        edgeOffset: 0,
+                        onRefresh: () => Future.wait([
+                          ref.refresh(wardrobeProvider.future),
+                          ref.refresh(profileProvider.future),
+                        ]),
+                        child: filtered.isEmpty
+                            ? LayoutBuilder(
+                                builder: (_, constraints) =>
+                                    SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: _EmptyState(
+                                        hasItems: allItems.isNotEmpty),
+                                  ),
+                                ),
+                              )
+                            : GridView.builder(
+                                physics:
+                                    const AlwaysScrollableScrollPhysics(),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 88),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.64,
+                                ),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final item = filtered[index];
+                                  return _ItemCardWithImage(
+                                    item: item,
+                                    allItems: allItems,
+                                  );
+                                },
                               ),
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final item = filtered[index];
-                                return _ItemCardWithImage(
-                                  item: item,
-                                  allItems: allItems,
-                                );
-                              },
-                            ),
+                      ),
                     ),
                   ],
                 ),
@@ -444,16 +461,12 @@ class _ItemCardWithImage extends ConsumerWidget {
       onTap: () => context.push(Routes.itemDetail, extra: item),
       onLogWear: () async {
         final ok = await showLogWearSheet(context, item.name);
-        if (!ok) return;
-        await ref.read(wardrobeProvider.notifier).logWorn(item);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Logged a wear for ${item.name}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        if (!ok || !context.mounted) return;
+        await runMutation(
+          context,
+          action: () => ref.read(wardrobeProvider.notifier).logWorn(item),
+          successMessage: 'Logged a wear for ${item.name}',
+        );
       },
       onBuildOutfit: () => openGeneratorWithPin(context, ref, item),
     );

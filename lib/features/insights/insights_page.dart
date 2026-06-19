@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/main_page_header.dart';
 import '../../data/models/item.dart';
 import '../../providers/insights_providers.dart';
 import '../../providers/profile_providers.dart';
@@ -23,6 +23,7 @@ class InsightsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final dataAsync = ref.watch(insightsProvider);
+    final profile = ref.watch(profileProvider).asData?.value;
 
     return Scaffold(
       backgroundColor: c.background,
@@ -30,7 +31,10 @@ class InsightsPage extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _InsightsTopBar(),
+            MainPageHeader(
+              title: 'Insights',
+              avatarSource: profile?.displayName ?? profile?.email,
+            ),
             Expanded(
               child: dataAsync.when(
                 loading: () => const Center(
@@ -54,34 +58,6 @@ class InsightsPage extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Top bar ─────────────────────────────────────────────────────────────────
-
-class _InsightsTopBar extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final profile = ref.watch(profileProvider).asData?.value;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          Text(
-            'Insights',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: c.textPrimary,
-            ),
-          ),
-          const Spacer(),
-          ProfileAvatarButton(
-              source: profile?.displayName ?? profile?.email),
-        ],
       ),
     );
   }
@@ -153,7 +129,7 @@ class _InsightsContentState extends State<_InsightsContent>
     final data = widget.data;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         // ── Section 1: Health Score ──────────────────────────────
         _SectionCard(
@@ -262,23 +238,31 @@ class _InsightsContentState extends State<_InsightsContent>
         ),
         const SizedBox(height: 12),
 
-        // ── Section 3: Wardrobe Utilisation ────────────────────
+        // ── Section 3: Wardrobe Health Breakdown ────────────────────
         _SectionCard(
-          label: 'Wardrobe Utilisation',
+          label: 'Wardrobe Health Breakdown',
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
+              Text(
+                'Utilisation',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary),
+              ),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      'Used this month',
-                      style: TextStyle(
-                          fontSize: 12, color: c.textSecondary),
+                      '${data.stats.wornThisMonth} of ${data.stats.totalItems} active items',
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),
                   Text(
-                    '${data.utilisationPct}% (${data.stats.wornThisMonth} of ${data.stats.totalItems} items)',
+                    '${data.utilisationPct}%',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -288,7 +272,6 @@ class _InsightsContentState extends State<_InsightsContent>
                 ],
               ),
               const SizedBox(height: 6),
-              // Progress bar
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
@@ -299,6 +282,64 @@ class _InsightsContentState extends State<_InsightsContent>
                       AppColors.utilisationFill(data.utilisationPct)),
                 ),
               ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Rotation',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => context.push(
+                      Routes.viewAll,
+                      extra: InsightViewAllType.overused,
+                    ),
+                    child: Text(
+                      'View All →',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: c.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${data.overusedItems.length} overused item${data.overusedItems.length == 1 ? '' : 's'}',
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
+                    ),
+                  ),
+                  Text(
+                    '${data.rotationPct}%',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: data.rotationPct / 100,
+                  minHeight: 8,
+                  backgroundColor: c.surface2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.utilisationFill(data.rotationPct)),
+                ),
+              ),
               const SizedBox(height: 12),
               Divider(height: 1, color: c.border),
               const SizedBox(height: 10),
@@ -307,8 +348,7 @@ class _InsightsContentState extends State<_InsightsContent>
                   Expanded(
                     child: Text(
                       '${data.sleepingItems.length} items not worn in 90+ days',
-                      style: TextStyle(
-                          fontSize: 12, color: c.textSecondary),
+                      style: TextStyle(fontSize: 12, color: c.textSecondary),
                     ),
                   ),
                   GestureDetector(
@@ -329,7 +369,7 @@ class _InsightsContentState extends State<_InsightsContent>
               ),
               const SizedBox(height: 10),
               Text(
-                'Utilisation makes up 50% of your Health Score',
+                'Each score contributes 50% to your Health Score.',
                 style: TextStyle(
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
@@ -669,6 +709,7 @@ class _AttentionRow extends ConsumerWidget {
     final badge = _badge(item, tabIndex, now);
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => context.push(Routes.itemDetail, extra: item),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -685,6 +726,8 @@ class _AttentionRow extends ConsumerWidget {
                         imageUrl: imageUrl,
                         cacheKey: cacheKey,
                         fit: BoxFit.cover,
+                        memCacheWidth: 150,
+                        memCacheHeight: 150,
                         placeholder: (_, _) =>
                             Container(color: c.surface2),
                         errorWidget: (_, _, _) =>

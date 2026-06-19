@@ -376,10 +376,13 @@ class _PinnedStrip extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: c.primaryLight,
+        border: Border.all(color: c.primary.withValues(alpha: 0.35), width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
+          Icon(Icons.push_pin, size: 20, color: c.primary),
+          const SizedBox(width: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
@@ -396,23 +399,12 @@ class _PinnedStrip extends ConsumerWidget {
                           ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
                           : null,
                       fit: BoxFit.cover,
+                      memCacheWidth: 100,
+                      memCacheHeight: 100,
                     ),
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: c.primary,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text('PINNED',
-                style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white)),
-          ),
-          const SizedBox(width: 6),
           Expanded(
             child: Text(item.name,
                 maxLines: 1,
@@ -704,6 +696,8 @@ class _Thumb extends ConsumerWidget {
                   ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
                   : null,
               fit: BoxFit.cover,
+              memCacheWidth: 500,
+              memCacheHeight: 500,
             ),
     );
   }

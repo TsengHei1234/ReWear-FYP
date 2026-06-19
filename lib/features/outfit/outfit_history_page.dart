@@ -151,6 +151,8 @@ class _HistoryThumb extends ConsumerWidget {
                 imageUrl: url,
                 cacheKey: imagePath, // stable path — survives URL regen
                 fit: BoxFit.cover,
+                memCacheWidth: 120,
+                memCacheHeight: 120,
               ),
       ),
     );

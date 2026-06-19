@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +38,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _createAccount() async {
     if (!_formKey.currentState!.validate()) return;
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.every((r) => r == ConnectivityResult.none)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No internet connection. Check your connection and try again.'),
+        duration: Duration(seconds: 3),
+      ));
+      return;
+    }
     setState(() => _loading = true);
     try {
       final auth = ref.read(authRepositoryProvider);

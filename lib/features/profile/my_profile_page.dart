@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/theme/app_color_scheme.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../providers/profile_providers.dart';
+import '../../routing/app_router.dart';
 
 /// Edit display name; email is read-only (FE §32).
 class MyProfilePage extends ConsumerStatefulWidget {
@@ -15,7 +19,6 @@ class MyProfilePage extends ConsumerStatefulWidget {
 class _MyProfilePageState extends ConsumerState<MyProfilePage> {
   late final TextEditingController _controller;
   bool _isDirty = false;
-  bool _isSaving = false;
 
   @override
   void initState() {
@@ -44,24 +47,21 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
     FocusScope.of(context).unfocus();
     final profile = ref.read(profileProvider).asData?.value;
     if (profile == null || !_isDirty) return;
-    setState(() => _isSaving = true);
-    try {
-      await ref.read(profileProvider.notifier).updateProfile(
-            profile.copyWith(displayName: _controller.text.trim()),
-          );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Profile updated')));
-      setState(() {
-        _isDirty = false;
-        _isSaving = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save — please try again.')));
-      setState(() => _isSaving = false);
-    }
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(profileProvider.notifier).updateProfile(
+              profile.copyWith(displayName: _controller.text.trim()),
+            );
+        succeeded = true;
+      },
+      successMessage: 'Profile updated',
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusScope.of(context).unfocus();
+    });
+    if (mounted && succeeded) setState(() => _isDirty = false);
   }
 
   @override
@@ -186,12 +186,32 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                         size: 15, color: c.textTertiary),
                   ],
                 ),
+                const SizedBox(height: 16),
+                Divider(height: 0.5, thickness: 0.5, color: c.border),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () => context.push(Routes.forgotPassword),
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Reset Password',
+                          style: TextStyle(
+                              fontSize: 14, color: c.textPrimary),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18, color: c.textTertiary),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: _isDirty && !_isSaving ? _save : null,
+            onPressed: _isDirty ? _save : null,
             style: FilledButton.styleFrom(
               backgroundColor: c.primary,
               disabledBackgroundColor: c.surface2,
@@ -201,18 +221,10 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
             ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text(
-                    'Save Changes',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
+            child: const Text(
+              'Save Changes',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

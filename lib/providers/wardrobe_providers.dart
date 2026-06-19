@@ -126,6 +126,11 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
   /// after mutations skip the check to avoid repeat notifications.
   bool _sessionChecked = false;
 
+  /// The calendar date (time stripped) of the most recent laundry check.
+  /// Set by [build] on cold start and by [checkLaundryOnResume] on resume.
+  /// Same-day resumes compare against this to skip redundant DB calls.
+  DateTime? _lastLaundryCheckDate;
+
   @override
   Future<List<Item>> build() async {
     final userId = ref.watch(currentUserIdProvider);
@@ -137,6 +142,11 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     await LaundryReturnService(ref.read(itemRepositoryProvider))
         .run(userId: userId, laundryCycleDays: cycleDays);
 
+    // Record today so on-resume checks can skip same-day re-runs.
+    final buildNow = DateTime.now();
+    _lastLaundryCheckDate =
+        DateTime(buildNow.year, buildNow.month, buildNow.day);
+
     final items =
         await ref.read(itemRepositoryProvider).getWardrobeItems(userId);
 
@@ -146,6 +156,29 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
     }
 
     return items;
+  }
+
+  /// Called on app resume ([AppLifecycleListener.onResume] in [MainShell]).
+  /// Only runs the laundry check if the calendar date has changed since the
+  /// last check — same-day resumes return immediately with zero DB calls.
+  /// Invalidates only if items were actually returned from laundry.
+  Future<void> checkLaundryOnResume() async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    if (_lastLaundryCheckDate == todayDate) return;
+
+    final profile = await ref.read(profileProvider.future);
+    final cycleDays = profile?.laundryCycleDays ?? 3;
+    final returned =
+        await LaundryReturnService(ref.read(itemRepositoryProvider))
+            .run(userId: userId, laundryCycleDays: cycleDays);
+
+    _lastLaundryCheckDate = todayDate;
+
+    if (returned > 0) ref.invalidateSelf();
   }
 
   Future<void> _checkNotificationsOnOpen(List<Item> items) async {
@@ -493,18 +526,19 @@ class WardrobeNotifier extends AsyncNotifier<List<Item>> {
   }
 
   /// Change item status (e.g. LAUNDRY, LENT, STORED, IN_WARDROBE).
-  /// Invalidates self (+ caller: Insights, Donation, OutfitGenerator).
+  /// Automatically sets laundry_started_at = now when status == LAUNDRY,
+  /// and clears it to null for all other statuses. Invalidates self.
   Future<void> updateItemStatus({
     required String itemId,
     required ItemStatus status,
-    DateTime? laundryStartedAt,
   }) async {
     await ref
         .read(itemRepositoryProvider)
         .updateStatus(
           itemId: itemId,
           status: status,
-          laundryStartedAt: laundryStartedAt,
+          laundryStartedAt:
+              status == ItemStatus.laundry ? DateTime.now() : null,
         );
     ref.invalidateSelf();
   }

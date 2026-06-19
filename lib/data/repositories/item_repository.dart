@@ -131,7 +131,8 @@ class ItemRepository {
     }).eq('id', itemId);
   }
 
-  /// Update only `status` and optionally `laundry_started_at`.
+  /// Update `status` and always writes `laundry_started_at` explicitly —
+  /// null clears the column (LENT / IN_WARDROBE), non-null sets it (LAUNDRY).
   Future<void> updateStatus({
     required String itemId,
     required ItemStatus status,
@@ -139,9 +140,9 @@ class ItemRepository {
   }) async {
     await _client.from('items').update({
       'status': status.value,
-      if (laundryStartedAt != null)
-        'laundry_started_at':
-            '${laundryStartedAt.year.toString().padLeft(4, '0')}-${laundryStartedAt.month.toString().padLeft(2, '0')}-${laundryStartedAt.day.toString().padLeft(2, '0')}',
+      'laundry_started_at': laundryStartedAt == null
+          ? null
+          : '${laundryStartedAt.year.toString().padLeft(4, '0')}-${laundryStartedAt.month.toString().padLeft(2, '0')}-${laundryStartedAt.day.toString().padLeft(2, '0')}',
     }).eq('id', itemId);
   }
 

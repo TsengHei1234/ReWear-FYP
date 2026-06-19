@@ -8,12 +8,14 @@ import '../../core/constants/item_type_dictionary.dart';
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/date_x.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/widgets/badge_chip.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../core/widgets/history_row.dart';
 import '../../data/models/item.dart';
 import '../../data/models/item_event.dart';
 import '../../engine/badges/badge_engine.dart';
+import '../../providers/profile_providers.dart';
 import '../../providers/wardrobe_providers.dart';
 import '../../routing/app_router.dart';
 import '../outfit/build_outfit_action.dart';
@@ -51,8 +53,17 @@ class ItemDetailPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: c.background,
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        displacement: 16,
+        edgeOffset: 0,
+        onRefresh: () => Future.wait([
+          ref.refresh(wardrobeProvider.future),
+          ref.refresh(profileProvider.future),
+          ref.refresh(itemEventsProvider(it.id).future),
+        ]),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // ── Photo header (1:1) with floating circle buttons ──────
           SliverToBoxAdapter(
             child: Stack(
@@ -158,7 +169,7 @@ class ItemDetailPage extends ConsumerWidget {
 
                   // Status + Condition
                   const SizedBox(height: 16),
-                  _buildStatusConditionRow(it, c),
+                  _buildStatusConditionRow(context, ref, it, c),
 
                   // Rule-Based Usage Summary
                   const SizedBox(height: 16),
@@ -179,6 +190,7 @@ class ItemDetailPage extends ConsumerWidget {
             ),
           ),
         ],
+        ),
       ),
 
       // ── Sticky bottom buttons ──────────────────────────────────
@@ -299,60 +311,224 @@ class ItemDetailPage extends ConsumerWidget {
 
   // ── Status & Condition ─────────────────────────────────────────────────────
 
-  Widget _buildStatusConditionRow(Item it, AppColorsTheme c) {
-    final available = it.status == ItemStatus.inWardrobe;
+  Widget _buildStatusConditionRow(
+      BuildContext context, WidgetRef ref, Item it, AppColorsTheme c) {
+    final canChange = it.status.isVisibleInWardrobe;
+    final decoration = BoxDecoration(
+      color: c.surface,
+      border: Border.all(color: c.border, width: 0.5),
+      borderRadius: BorderRadius.circular(12),
+    );
+    const tilePadding = EdgeInsets.symmetric(horizontal: 12, vertical: 14);
+    final labelStyle =
+        TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: c.textSecondary);
+    final valueStyle =
+        TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c.textPrimary);
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Status pill — small status dot + label
-        _pill(
-          c: c,
-          leading: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: available ? c.primary : c.textTertiary,
+        // ── Status tile (tappable when changeable) ───────────────
+        Expanded(
+          child: GestureDetector(
+            onTap:
+                canChange ? () => _showStatusSheet(context, ref, it, c) : null,
+            child: Container(
+              padding: tilePadding,
+              decoration: decoration,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text('Status', style: labelStyle),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _statusDotColor(it.status, c)),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(_statusLabel(it.status),
+                            style: valueStyle,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      if (canChange) ...[
+                        const SizedBox(width: 3),
+                        Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 15, color: c.textTertiary),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          label: _statusLabel(it.status),
         ),
         const SizedBox(width: 8),
-        // Condition pill — check-circle icon + label
-        _pill(
-          c: c,
-          leading: Icon(Icons.check_circle_outline,
-              size: 14, color: c.textSecondary),
-          label: 'Condition: ${conditionLabel(it.condition)}',
+        // ── Condition tile (display-only) ────────────────────────
+        Expanded(
+          child: Container(
+            padding: tilePadding,
+            decoration: decoration,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('Condition', style: labelStyle),
+                const SizedBox(height: 5),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _conditionColor(it.condition, c)),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(conditionLabel(it.condition),
+                          style: valueStyle,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _pill({
-    required Widget leading,
-    required String label,
-    required AppColorsTheme c,
-  }) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: c.surface2,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            leading,
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: c.textPrimary)),
-          ],
-        ),
-      );
+  Color _statusDotColor(ItemStatus s, AppColorsTheme c) => switch (s) {
+        ItemStatus.inWardrobe => c.primary,
+        ItemStatus.laundry => AppColors.badgeNewText,
+        ItemStatus.lent => AppColors.amberText,
+        ItemStatus.stored => c.textSecondary,
+        _ => c.textTertiary,
+      };
+
+  Color _conditionColor(int condition, AppColorsTheme c) => switch (condition) {
+        5 => c.primary,
+        4 => c.primaryMid,
+        3 => AppColors.amberText,
+        2 => AppColors.danger,
+        _ => AppColors.danger,
+      };
+
+  void _showStatusSheet(
+      BuildContext context, WidgetRef ref, Item it, AppColorsTheme c) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        Widget option(String label, IconData icon, Color iconColor,
+            ItemStatus target, String snackMsg) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton(
+                onPressed: () async {
+                  Navigator.of(sheetCtx).pop();
+                  if (!context.mounted) return;
+                  await runMutation(
+                    context,
+                    action: () => ref
+                        .read(wardrobeProvider.notifier)
+                        .updateItemStatus(itemId: it.id, status: target),
+                    successMessage: snackMsg,
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: c.border),
+                  backgroundColor: c.surface2,
+                  foregroundColor: c.textPrimary,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.centerLeft,
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 18, color: iconColor),
+                    const SizedBox(width: 12),
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+              20, 8, 20, MediaQuery.of(sheetCtx).viewPadding.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: c.border,
+                    borderRadius: BorderRadius.circular(999)),
+              ),
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Change Status',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary)),
+              ),
+              const SizedBox(height: 16),
+              if (it.status == ItemStatus.inWardrobe) ...[
+                option('Mark as Laundry', Icons.water_drop_outlined,
+                    AppColors.badgeNewText, ItemStatus.laundry,
+                    'Item marked as laundry.'),
+                option('Mark as Lent Out', Icons.people_outline_rounded,
+                    AppColors.amberText, ItemStatus.lent,
+                    'Item marked as lent out.'),
+              ] else ...[
+                option('Return to Wardrobe', Icons.checkroom_outlined,
+                    c.primary, ItemStatus.inWardrobe,
+                    'Item returned to wardrobe.'),
+              ],
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton(
+                  onPressed: () => Navigator.of(sheetCtx).pop(),
+                  child: Text('Cancel',
+                      style:
+                          TextStyle(fontSize: 15, color: c.textSecondary)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   // ── Rule-Based Usage Summary ────────────────────────────────────────────────
 
@@ -558,18 +734,14 @@ class ItemDetailPage extends ConsumerWidget {
                   onPressed: available
                       ? () async {
                           final ok = await showLogWearSheet(context, it.name);
-                          if (!ok) return;
-                          await ref
-                              .read(wardrobeProvider.notifier)
-                              .logWorn(it);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Logged a wear for ${it.name}'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          if (!ok || !context.mounted) return;
+                          await runMutation(
+                            context,
+                            action: () => ref
+                                .read(wardrobeProvider.notifier)
+                                .logWorn(it),
+                            successMessage: 'Logged a wear for ${it.name}',
+                          );
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -599,23 +771,31 @@ class ItemDetailPage extends ConsumerWidget {
               child: SizedBox(
                 height: 48,
                 child: OutlinedButton(
-                  onPressed: () => openGeneratorWithPin(context, ref, it),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: c.primary),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                  onPressed: available
+                      ? () => openGeneratorWithPin(context, ref, it)
+                      : null,
+                  style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.resolveWith((s) =>
+                        s.contains(WidgetState.disabled)
+                            ? c.textTertiary
+                            : c.primary),
+                    side: WidgetStateProperty.resolveWith((s) =>
+                        s.contains(WidgetState.disabled)
+                            ? BorderSide(color: c.border)
+                            : BorderSide(color: c.primary)),
+                    shape: WidgetStateProperty.all(RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.auto_fix_high, size: 18, color: c.primary),
-                      const SizedBox(width: 8),
+                      Icon(Icons.auto_fix_high, size: 18),
+                      SizedBox(width: 8),
                       Text('Build Outfit',
                           style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: c.primary)),
+                              fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
@@ -672,8 +852,19 @@ class ItemDetailPage extends ConsumerWidget {
               child: ElevatedButton(
                 onPressed: () async {
                   Navigator.of(sheetCtx).pop();
-                  await ref.read(wardrobeProvider.notifier).deleteItem(it.id);
-                  if (context.mounted) context.pop();
+                  if (!context.mounted) return;
+                  bool succeeded = false;
+                  await runMutation(
+                    context,
+                    action: () async {
+                      await ref
+                          .read(wardrobeProvider.notifier)
+                          .deleteItem(it.id);
+                      succeeded = true;
+                    },
+                    successMessage: '${it.name} removed from wardrobe',
+                  );
+                  if (context.mounted && succeeded) context.pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.danger,

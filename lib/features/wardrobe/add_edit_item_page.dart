@@ -12,6 +12,7 @@ import '../../core/constants/enums.dart';
 import '../../core/constants/item_type_dictionary.dart';
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/widgets/app_filter_chip.dart';
 import '../../data/models/item.dart';
 import '../../engine/condition/condition_engine.dart';
@@ -62,7 +63,6 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
   ConditionReviewMode _reviewMode = ConditionReviewMode.auto;
   bool _isFavorite = false;
   File? _photoFile;
-  bool _isSaving = false;
 
   bool get _isEditing => widget.existingItem != null;
 
@@ -210,25 +210,22 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
-    if (!_canSave() || _isSaving) return;
+    if (!_canSave()) return;
     FocusScope.of(context).unfocus();
-    setState(() => _isSaving = true);
-    try {
-      if (_isEditing) {
-        await _saveEdit();
-      } else {
-        await _saveNew();
-      }
-      if (mounted) context.pop();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        if (_isEditing) {
+          await _saveEdit();
+        } else {
+          await _saveNew();
+        }
+        succeeded = true;
+      },
+      successMessage: _isEditing ? 'Item updated' : 'Item added to wardrobe',
+    );
+    if (mounted && succeeded) context.pop();
   }
 
   Future<void> _saveNew() async {
@@ -518,7 +515,7 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
             height: 52,
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _canSave() && !_isSaving ? _save : null,
+              onPressed: _canSave() ? _save : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: c.primary,
                 disabledBackgroundColor: c.border,
@@ -529,18 +526,10 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
                 ),
                 elevation: 0,
               ),
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : Text(
-                      _isEditing ? 'Save Changes' : 'Add to Wardrobe',
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
+              child: Text(
+                _isEditing ? 'Save Changes' : 'Add to Wardrobe',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ),

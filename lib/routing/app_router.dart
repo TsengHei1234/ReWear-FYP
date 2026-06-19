@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/models/item.dart';
 import '../features/auth/forgot_password_screen.dart';
+import '../features/auth/set_new_password_screen.dart';
 import '../features/donate/donate_page.dart';
 import '../features/donate/donation_history_page.dart';
 import '../features/donate/kept_items_page.dart';
@@ -38,6 +39,7 @@ abstract class Routes {
   static const login = '/login';
   static const signup = '/signup';
   static const forgotPassword = '/forgot-password';
+  static const setNewPassword = '/set-new-password';
   static const onboarding = '/onboarding';
 
   // ── Main shell tabs ────────────────────────────────────────────
@@ -97,6 +99,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: Routes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: Routes.setNewPassword,
+      builder: (context, state) => const SetNewPasswordScreen(),
     ),
     GoRoute(
       path: Routes.onboarding,

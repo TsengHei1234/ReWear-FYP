@@ -7,8 +7,9 @@ import '../../core/constants/enums.dart';
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_filter_chip.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/widgets/confirm_sheet.dart';
-import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/main_page_header.dart';
 import '../../data/models/item.dart';
 import '../../engine/donation/donation_rules.dart';
 import '../../providers/donation_providers.dart';
@@ -60,6 +61,8 @@ class _DonatePageState extends ConsumerState<DonatePage> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final candidatesAsync = ref.watch(donationCandidatesProvider);
+    final profile = ref.watch(profileProvider).asData?.value;
+    final donationCount = candidatesAsync.asData?.value.length ?? 0;
 
     return Scaffold(
       backgroundColor: c.background,
@@ -68,7 +71,30 @@ class _DonatePageState extends ConsumerState<DonatePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _DonateTopBar(totalCount: candidatesAsync.asData?.value.length ?? 0),
+            MainPageHeader(
+              title: 'Donate',
+              avatarSource: profile?.displayName ?? profile?.email,
+            ),
+            // ── Fixed controls ────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HeaderCard(count: donationCount),
+                  const SizedBox(height: 12),
+                  _ShortcutTiles(),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            FilterChipRow(
+              labels: _filterLabels,
+              selectedIndex: _filterIndex,
+              onSelected: (i) => setState(() => _filterIndex = i),
+            ),
+            const SizedBox(height: 12),
+            // ── Scrollable cards ──────────────────────────────────
             Expanded(
               child: candidatesAsync.when(
                 loading: () =>
@@ -78,87 +104,52 @@ class _DonatePageState extends ConsumerState<DonatePage> {
                         style: TextStyle(color: c.textSecondary))),
                 data: (all) {
                   final filtered = _applyFilter(all);
-                  return CustomScrollView(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _HeaderCard(count: all.length),
-                              const SizedBox(height: 12),
-                              _ShortcutTiles(),
-                              const SizedBox(height: 12),
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.favorite_outline,
+                                size: 48, color: c.textTertiary),
+                            const SizedBox(height: 12),
+                            Text(
+                              all.isEmpty
+                                  ? 'Your wardrobe looks great!'
+                                  : 'No items match this filter.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                            if (all.isEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'No items currently need your attention.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 13, color: c.textTertiary),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
-                      SliverToBoxAdapter(
-                        child: FilterChipRow(
-                          labels: _filterLabels,
-                          selectedIndex: _filterIndex,
-                          onSelected: (i) =>
-                              setState(() => _filterIndex = i),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                      if (filtered.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.favorite_outline,
-                                    size: 48, color: c.textTertiary),
-                                const SizedBox(height: 12),
-                                Text(
-                                  all.isEmpty
-                                      ? 'Your wardrobe looks great!'
-                                      : 'No items match this filter.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                                if (all.isEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'No items currently need your attention.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: c.textTertiary),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          sliver: SliverList.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (ctx, i) =>
-                                _DonationCandidateCard(
-                              entry: filtered[i],
-                              onKeep: () =>
-                                  _keepItem(filtered[i].item),
-                              onDonate: () =>
-                                  _donateItem(filtered[i].item),
-                            ),
-                          ),
-                        ),
-                    ],
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (ctx, i) => _DonationCandidateCard(
+                      entry: filtered[i],
+                      onKeep: () => _keepItem(filtered[i].item),
+                      onDonate: () => _donateItem(filtered[i].item),
+                    ),
                   );
                 },
               ),
@@ -171,17 +162,14 @@ class _DonatePageState extends ConsumerState<DonatePage> {
 
   Future<void> _keepItem(Item item) async {
     final chosen = await _showKeepDurationSheet(context);
-    if (chosen == null) return;
-    await ref.read(wardrobeProvider.notifier).setKeptUntil(
-          itemId: item.id,
-          keptUntil: chosen,
-        );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} deferred from donation'),
-        duration: const Duration(seconds: 2),
-      ),
+    if (chosen == null || !mounted) return;
+    await runMutation(
+      context,
+      action: () => ref.read(wardrobeProvider.notifier).setKeptUntil(
+            itemId: item.id,
+            keptUntil: chosen,
+          ),
+      successMessage: '${item.name} deferred from donation',
     );
   }
 
@@ -194,62 +182,11 @@ class _DonatePageState extends ConsumerState<DonatePage> {
       confirmLabel: 'Donate',
       isDestructive: true,
     );
-    if (!ok) return;
-    await ref.read(wardrobeProvider.notifier).confirmDonation(item.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} marked as donated'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-}
-
-// ── Top bar ─────────────────────────────────────────────────────────────────
-
-class _DonateTopBar extends ConsumerWidget {
-  const _DonateTopBar({required this.totalCount});
-  final int totalCount;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final profile = ref.watch(profileProvider).asData?.value;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          Text(
-            'Donate',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: c.textPrimary,
-            ),
-          ),
-          if (totalCount > 0) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.dangerBg,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '$totalCount',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.danger,
-                ),
-              ),
-            ),
-          ],
-          const Spacer(),
-          ProfileAvatarButton(source: profile?.displayName ?? profile?.email),
-        ],
-      ),
+    if (!ok || !mounted) return;
+    await runMutation(
+      context,
+      action: () => ref.read(wardrobeProvider.notifier).confirmDonation(item.id),
+      successMessage: '${item.name} marked as donated',
     );
   }
 }
@@ -269,7 +206,7 @@ class _HeaderCard extends StatelessWidget {
         Row(
           children: [
             Text(
-              'Donation Candidates',
+              count > 0 ? 'Donation Candidates ·' : 'Donation Candidates',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -277,21 +214,13 @@ class _HeaderCard extends StatelessWidget {
               ),
             ),
             if (count > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.dangerBg,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.danger,
-                  ),
+              const SizedBox(width: 4),
+              Text(
+                '$count item${count == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.danger,
                 ),
               ),
             ],
@@ -430,6 +359,8 @@ class _DonationCandidateCard extends ConsumerWidget {
                               imageUrl: imageUrl,
                               cacheKey: cacheKey,
                               fit: BoxFit.cover,
+                              memCacheWidth: 200,
+                              memCacheHeight: 200,
                               placeholder: (_, _) =>
                                   _photoPlaceholder(c),
                               errorWidget: (_, _, _) =>

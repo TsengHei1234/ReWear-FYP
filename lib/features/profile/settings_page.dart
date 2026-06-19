@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_color_scheme.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../data/models/profile.dart';
@@ -74,29 +77,43 @@ class SettingsPage extends ConsumerWidget {
                 mode: profile?.recommendationMode,
                 onChanged: profile == null
                     ? null
-                    : (v) => ref
-                        .read(profileProvider.notifier)
-                        .updateProfile(profile.copyWith(
-                          recommendationMode: v
-                              ? RecommendationMode.balanced
-                              : RecommendationMode.pureRotation,
+                    : (v) => unawaited(runMutation(
+                          context,
+                          action: () => ref
+                              .read(profileProvider.notifier)
+                              .updateProfile(profile.copyWith(
+                                recommendationMode: v
+                                    ? RecommendationMode.balanced
+                                    : RecommendationMode.pureRotation,
+                              )),
+                          successMessage: 'Setting saved',
                         )),
               ),
               _LaundryCycleTile(
                 days: profile?.laundryCycleDays ?? 3,
                 enabled: profile != null,
                 onDecrement: profile != null && profile.laundryCycleDays > 1
-                    ? () => ref
-                        .read(profileProvider.notifier)
-                        .updateProfile(profile.copyWith(
-                          laundryCycleDays: profile.laundryCycleDays - 1,
+                    ? () => unawaited(runMutation(
+                          context,
+                          action: () => ref
+                              .read(profileProvider.notifier)
+                              .updateProfile(profile.copyWith(
+                                laundryCycleDays:
+                                    profile.laundryCycleDays - 1,
+                              )),
+                          successMessage: 'Setting saved',
                         ))
                     : null,
                 onIncrement: profile != null && profile.laundryCycleDays < 14
-                    ? () => ref
-                        .read(profileProvider.notifier)
-                        .updateProfile(profile.copyWith(
-                          laundryCycleDays: profile.laundryCycleDays + 1,
+                    ? () => unawaited(runMutation(
+                          context,
+                          action: () => ref
+                              .read(profileProvider.notifier)
+                              .updateProfile(profile.copyWith(
+                                laundryCycleDays:
+                                    profile.laundryCycleDays + 1,
+                              )),
+                          successMessage: 'Setting saved',
                         ))
                     : null,
               ),

@@ -193,6 +193,8 @@ class _Photo extends StatelessWidget {
       imageUrl: imageUrl!,
       cacheKey: cacheKey,
       fit: BoxFit.cover,
+      memCacheWidth: 300,
+      memCacheHeight: 300,
       placeholder: (_, _) => placeholder(),
       errorWidget: (_, _, _) => placeholder(),
     );

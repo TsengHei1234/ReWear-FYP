@@ -36,7 +36,11 @@ class AuthRepository {
 
   Future<void> signOut() => _client.auth.signOut();
 
-  /// Sends a password-reset email (Supabase default hosted flow for MVP).
+  /// Sends a password-reset email. The link deep-links back into the app via
+  /// rewear://reset-callback (registered in AndroidManifest + Supabase dashboard).
   Future<void> sendPasswordReset(String email) =>
-      _client.auth.resetPasswordForEmail(email);
+      _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'rewear://reset-callback',
+      );
 }

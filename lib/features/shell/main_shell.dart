@@ -1,14 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_color_scheme.dart';
+import '../../providers/wardrobe_providers.dart';
 
 /// The persistent 5-tab scaffold that wraps all main-tab pages.
 /// Source: FE §6.14 (bottom nav), FE §7 (navigation structure).
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // On resume, run a date-gated laundry check — skips same-day resumes
+    // with zero DB calls; only invalidates wardrobe if items were returned.
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () =>
+          ref.read(wardrobeProvider.notifier).checkLaundryOnResume(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,12 +44,12 @@ class MainShell extends StatelessWidget {
       // manage their own insets. Without this, typing in the wardrobe search bar
       // lifts the empty-state content and FAB.
       resizeToAvoidBottomInset: false,
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: _BottomNav(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => navigationShell.goBranch(
+        currentIndex: widget.navigationShell.currentIndex,
+        onTap: (index) => widget.navigationShell.goBranch(
           index,
-          initialLocation: index == navigationShell.currentIndex,
+          initialLocation: index == widget.navigationShell.currentIndex,
         ),
       ),
     );

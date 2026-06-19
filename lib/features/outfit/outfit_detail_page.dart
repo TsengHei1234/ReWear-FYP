@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/mutation_helper.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../data/models/item.dart';
 import '../../engine/daily/daily_rotation_display.dart';
@@ -113,9 +114,16 @@ class OutfitDetailPage extends ConsumerWidget {
       confirmLabel: 'Skip Item',
       isDestructive: true,
     );
-    if (!ok) return;
-    await ref.read(outfitGeneratorProvider.notifier).skip([item]);
-    if (context.mounted) context.pop();
+    if (!ok || !context.mounted) return;
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(outfitGeneratorProvider.notifier).skip([item]);
+        succeeded = true;
+      },
+    );
+    if (context.mounted && succeeded) context.pop();
   }
 
   Future<void> _skipOutfit(
@@ -128,9 +136,16 @@ class OutfitDetailPage extends ConsumerWidget {
       confirmLabel: 'Skip Outfit',
       isDestructive: true,
     );
-    if (!ok) return;
-    await ref.read(outfitGeneratorProvider.notifier).skip(outfit.items);
-    if (context.mounted) context.pop();
+    if (!ok || !context.mounted) return;
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(outfitGeneratorProvider.notifier).skip(outfit.items);
+        succeeded = true;
+      },
+    );
+    if (context.mounted && succeeded) context.pop();
   }
 
   Future<void> _logOutfit(
@@ -142,21 +157,25 @@ class OutfitDetailPage extends ConsumerWidget {
       message: "All items will be marked worn today, so they won't appear in today's rotation.",
       confirmLabel: 'Log Outfit',
     );
-    if (!ok) return;
+    if (!ok || !context.mounted) return;
     final pieces = [
       for (final slot in outfit.filledSlots)
         (item: outfit.itemAt(slot)!, layer: _layerOf(slot)),
     ];
-    await ref.read(wardrobeProvider.notifier).logOutfitWorn(
-          pieces: pieces,
-          occasion: args.occasion,
-          outfitScore: args.scored.score,
-        );
-    if (!context.mounted) return;
-    context.pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Outfit logged'), duration: Duration(seconds: 2)),
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(wardrobeProvider.notifier).logOutfitWorn(
+              pieces: pieces,
+              occasion: args.occasion,
+              outfitScore: args.scored.score,
+            );
+        succeeded = true;
+      },
+      successMessage: 'Outfit logged',
     );
+    if (context.mounted && succeeded) context.pop();
   }
 }
 
@@ -327,6 +346,8 @@ class _ItemRow extends ConsumerWidget {
                             ? '${item.imagePath}_v${item.updatedAt.millisecondsSinceEpoch}'
                             : null,
                         fit: BoxFit.cover,
+                        memCacheWidth: 150,
+                        memCacheHeight: 150,
                       ),
               ),
             ),
