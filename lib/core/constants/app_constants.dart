@@ -83,6 +83,7 @@ const Map<SwatchColour, Color> kSwatchColours = {
   SwatchColour.navy: AppColors.swatchNavy,
   SwatchColour.blue: AppColors.swatchBlue,
   SwatchColour.red: AppColors.swatchRed,
+  SwatchColour.orange: AppColors.swatchOrange,
   SwatchColour.green: AppColors.swatchGreen,
   SwatchColour.brown: AppColors.swatchBrown,
   SwatchColour.yellow: AppColors.swatchYellow,

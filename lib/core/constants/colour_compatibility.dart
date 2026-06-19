@@ -2,7 +2,7 @@
 ///
 /// The Rule Engine ("P1c — Colour Compatibility Score") gives colour *groups*
 /// and six heuristic score *bands* but NO explicit 12×12 pair table. This file
-/// AUTHORS that table via a documented, principled algorithm over the 12 locked
+/// AUTHORS that table via a documented, principled algorithm over the 13 locked
 /// swatch colours, and is unit-tested against the RE's one worked example
 /// (White+Navy=1.00, Navy+Brown=0.80 → avg 0.90).
 ///
@@ -28,7 +28,8 @@
 ///    coloured-neutral (navy/brown) = 0.70, bright chromatic = 0.65. Neutral
 ///    monochrome outfits stay acceptable; variety comes from rotation scoring.
 ///    NOTE: 0.70 is an authored intermediate value, not one of the six RE bands.
-/// 6. RE groups list olive/orange/cream — not in the 12 swatches, so omitted.
+/// 6. RE groups list olive/cream — not in the 13 swatches, so omitted. Orange
+///    was added (13th swatch) with explicit chromatic pair overrides below.
 /// 7. Unknown/legacy tokens fall back to 0.80 (acceptable) so a stray tag never
 ///    tanks an outfit.
 library;
@@ -53,9 +54,14 @@ const Map<String, double> _chromaticOverrides = {
   'pink|red': 0.65,
   'purple|red': 0.65,
   'pink|purple': 0.65,
+  'orange|red': 0.65,
+  'orange|yellow': 0.65,
+  'orange|pink': 0.65,
   // known complementary clashes → 0.30
   'green|red': 0.30,
   'purple|yellow': 0.30,
+  'blue|orange': 0.30,
+  'orange|purple': 0.30,
 };
 
 /// Returns the P1c compatibility band for two primary colours, in [0.30, 1.00].
@@ -107,4 +113,4 @@ double colourScore(String a, String b) {
 
 bool _isKnown(String c) =>
     _neutral.contains(c) ||
-    const {'blue', 'green', 'red', 'yellow', 'pink', 'purple'}.contains(c);
+    const {'blue', 'green', 'red', 'orange', 'yellow', 'pink', 'purple'}.contains(c);

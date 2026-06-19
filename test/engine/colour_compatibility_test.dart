@@ -19,7 +19,7 @@ void main() {
     test('symmetric for every swatch pair', () {
       const all = [
         'black', 'white', 'grey', 'beige', 'navy', 'brown',
-        'blue', 'green', 'red', 'yellow', 'pink', 'purple',
+        'blue', 'green', 'red', 'orange', 'yellow', 'pink', 'purple',
       ];
       for (final a in all) {
         for (final b in all) {
@@ -33,7 +33,7 @@ void main() {
       final bands = {1.00, 0.90, 0.80, 0.70, 0.65, 0.50, 0.30};
       const all = [
         'black', 'white', 'grey', 'beige', 'navy', 'brown',
-        'blue', 'green', 'red', 'yellow', 'pink', 'purple',
+        'blue', 'green', 'red', 'orange', 'yellow', 'pink', 'purple',
       ];
       for (final a in all) {
         for (final b in all) {
@@ -70,6 +70,31 @@ void main() {
     test('cross-temperature loud accents → 0.50', () {
       expect(colourScore('blue', 'red'), 0.50);
       expect(colourScore('yellow', 'pink'), 0.50);
+    });
+    test('orange — achromatic neutral → 0.90', () {
+      expect(colourScore('orange', 'white'), 0.90);
+      expect(colourScore('orange', 'black'), 0.90);
+      expect(colourScore('orange', 'grey'), 0.90);
+      expect(colourScore('orange', 'beige'), 0.90);
+    });
+    test('orange — coloured-neutral → 0.80', () {
+      expect(colourScore('orange', 'navy'), 0.80);
+      expect(colourScore('orange', 'brown'), 0.80);
+    });
+    test('orange — analogous warm → 0.65', () {
+      expect(colourScore('orange', 'red'), 0.65);
+      expect(colourScore('orange', 'yellow'), 0.65);
+      expect(colourScore('orange', 'pink'), 0.65);
+    });
+    test('orange — complementary clash → 0.30', () {
+      expect(colourScore('orange', 'blue'), 0.30);
+      expect(colourScore('orange', 'purple'), 0.30);
+    });
+    test('orange — cross-temperature → 0.50', () {
+      expect(colourScore('orange', 'green'), 0.50);
+    });
+    test('orange monochrome → 0.65 (bright chromatic)', () {
+      expect(colourScore('orange', 'orange'), 0.65);
     });
     test('same colour diagonal is tiered (neutral monochrome acceptable)', () {
       // achromatic monochrome → 0.80 (acceptable)

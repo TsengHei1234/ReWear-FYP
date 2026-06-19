@@ -116,6 +116,7 @@ class ItemTypeDictionary {
     ItemTypeDef(storedValue: 'CASUAL_COAT_PARKA', displayLabel: 'Casual coat / Parka', category: ItemCategory.outerwear, defaultOccasions: [_c], allowedOccasions: [_c, _w, _r], defaultFormality: 3, conditionThreshold: 34),
     ItemTypeDef(storedValue: 'FORMAL_COAT_OVERCOAT', displayLabel: 'Formal coat / Overcoat', category: ItemCategory.outerwear, defaultOccasions: [_w], allowedOccasions: [_w, _c], defaultFormality: 4, conditionThreshold: 34),
     ItemTypeDef(storedValue: 'RAIN_JACKET_WINDBREAKER', displayLabel: 'Rain jacket / Windbreaker', category: ItemCategory.outerwear, defaultOccasions: [_c], allowedOccasions: [_c, _a], defaultFormality: 2, conditionThreshold: 34),
+    ItemTypeDef(storedValue: 'OVERSHIRT_SHIRT_JACKET', displayLabel: 'Overshirt / Shirt jacket', category: ItemCategory.outerwear, defaultOccasions: [_c], allowedOccasions: [_c, _r], defaultFormality: 2, conditionThreshold: 34),
     ItemTypeDef(storedValue: 'OTHER_OUTERWEAR', displayLabel: 'Other outerwear', category: ItemCategory.outerwear, defaultOccasions: [_c], allowedOccasions: [_c, _w, _r, _a], defaultFormality: 2, conditionThreshold: 34),
   ];
 

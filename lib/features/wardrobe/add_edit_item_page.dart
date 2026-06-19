@@ -741,8 +741,8 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
   // Colours ─────────────────────────────────────────────────────────────────
 
   Widget _buildColourGrid(AppColorsTheme c) => Wrap(
-        spacing: 12,
-        runSpacing: 12,
+        spacing: 8,
+        runSpacing: 8,
         children: SwatchColour.values.map((swatch) {
           final color = kSwatchColours[swatch]!;
           final selected = _colorTags.contains(swatch.value);
@@ -750,8 +750,8 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
             onTap: () => _toggleColour(swatch.value),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,

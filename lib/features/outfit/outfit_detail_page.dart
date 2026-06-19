@@ -89,7 +89,11 @@ class OutfitDetailPage extends ConsumerWidget {
             summary: summary,
           ),
           const SizedBox(height: 16),
-          _ItemsCard(outfit: outfit, onSkipItem: (i) => _skipItem(context, ref, i)),
+          _ItemsCard(
+            outfit: outfit,
+            pinnedItemId: pin?.id,
+            onSkipItem: (i) => _skipItem(context, ref, i),
+          ),
           const SizedBox(height: 16),
           _WhyCard(reasons: exp.whyReasons),
           const SizedBox(height: 16),
@@ -122,6 +126,7 @@ class OutfitDetailPage extends ConsumerWidget {
         await ref.read(outfitGeneratorProvider.notifier).skip([item]);
         succeeded = true;
       },
+      successMessage: 'Item skipped',
     );
     if (context.mounted && succeeded) context.pop();
   }
@@ -137,13 +142,20 @@ class OutfitDetailPage extends ConsumerWidget {
       isDestructive: true,
     );
     if (!ok || !context.mounted) return;
+    // Exclude the pinned item from being added to excludedItems — the pin must
+    // remain available for the replacement outfit (DECISIONS G1). Non-pinned
+    // items are still excluded so they don't appear in the replacement.
+    final pin = ref.read(outfitGeneratorProvider).pinnedItem;
+    final itemsToSkip =
+        outfit.items.where((i) => i.id != pin?.id).toList();
     bool succeeded = false;
     await runMutation(
       context,
       action: () async {
-        await ref.read(outfitGeneratorProvider.notifier).skip(outfit.items);
+        await ref.read(outfitGeneratorProvider.notifier).skip(itemsToSkip);
         succeeded = true;
       },
+      successMessage: 'Outfit skipped',
     );
     if (context.mounted && succeeded) context.pop();
   }
@@ -272,10 +284,15 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.outfit, required this.onSkipItem});
+  const _ItemsCard({
+    required this.outfit,
+    required this.onSkipItem,
+    this.pinnedItemId,
+  });
 
   final Outfit outfit;
   final void Function(Item) onSkipItem;
+  final String? pinnedItemId;
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +314,7 @@ class _ItemsCard extends StatelessWidget {
               item: outfit.itemAt(slots[i])!,
               layerLabel: _layerLabel(slots[i]),
               onSkip: () => onSkipItem(outfit.itemAt(slots[i])!),
+              isPinned: outfit.itemAt(slots[i])!.id == pinnedItemId,
             ),
           ],
         ],
@@ -310,11 +328,13 @@ class _ItemRow extends ConsumerWidget {
     required this.item,
     required this.layerLabel,
     required this.onSkip,
+    this.isPinned = false,
   });
 
   final Item item;
   final String layerLabel;
   final VoidCallback onSkip;
+  final bool isPinned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -371,16 +391,17 @@ class _ItemRow extends ConsumerWidget {
                 ],
               ),
             ),
-            // Skip icon — separate tap target (consumes its own taps).
-            GestureDetector(
-              onTap: onSkip,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.skip_next_outlined,
-                    size: 20, color: c.textTertiary),
+            // Skip icon hidden for the pinned item (pin cannot be excluded).
+            if (!isPinned)
+              GestureDetector(
+                onTap: onSkip,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.skip_next_outlined,
+                      size: 20, color: c.textTertiary),
+                ),
               ),
-            ),
             Icon(Icons.chevron_right, size: 18, color: AppColors.chevron),
           ],
         ),

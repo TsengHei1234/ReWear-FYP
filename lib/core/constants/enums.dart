@@ -171,6 +171,7 @@ enum SwatchColour {
   navy('navy'),
   blue('blue'),
   red('red'),
+  orange('orange'),
   green('green'),
   brown('brown'),
   yellow('yellow'),

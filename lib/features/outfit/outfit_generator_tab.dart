@@ -130,6 +130,12 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
                 ref.read(outfitGeneratorProvider.notifier).regenerate(),
           ),
 
+        // ── Empty state hint (before first generation / after reset) ─
+        if (!state.hasGenerated) ...[
+          const SizedBox(height: 32),
+          const _EmptyGeneratorHint(),
+        ],
+
         // ── Results / failure ───────────────────────────────────────
         if (state.hasGenerated && state.failureMessage != null) ...[
           const SizedBox(height: 16),
@@ -162,12 +168,12 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
   }
 
   /// Filter-change orchestration (DECISIONS G1). Pinned → staged (apply, no
-  /// reset). No-pin + already generated → warn; on Continue apply the new filter
+  /// reset). No-pin + outfits visible → warn; on Continue apply the new filter
   /// and CLEAR the generated cards (button returns to "Generate Outfit"); the
   /// user re-generates manually. Cancel → keep old cards + old filter. Else apply.
   Future<void> _changeFilter(VoidCallback apply) async {
     final state = ref.read(outfitGeneratorProvider);
-    if (state.pinnedItem == null && state.hasGenerated) {
+    if (state.pinnedItem == null && state.outfits.isNotEmpty) {
       final ok = await showConfirmSheet(
         context,
         icon: Icons.refresh,
@@ -183,10 +189,10 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
     }
   }
 
-  /// Remove the pin. Confirms first only when outfits are showing (removing the
+  /// Remove the pin. Confirms first only when outfits are visible (removing the
   /// pin resets the session and clears them — DECISIONS G1).
   Future<void> _clearPin() async {
-    if (ref.read(outfitGeneratorProvider).hasGenerated) {
+    if (ref.read(outfitGeneratorProvider).outfits.isNotEmpty) {
       final ok = await showConfirmSheet(
         context,
         icon: Icons.close,
@@ -670,6 +676,35 @@ class _ExtraBadge extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: c.onPrimaryLight)),
+    );
+  }
+}
+
+class _EmptyGeneratorHint extends StatelessWidget {
+  const _EmptyGeneratorHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      children: [
+        Icon(Icons.checkroom_outlined, size: 48, color: c.textTertiary),
+        const SizedBox(height: 12),
+        Text(
+          'Ready to generate',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: c.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Set your occasion and layers above,\nthen tap Generate to discover outfit combinations.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: c.textTertiary),
+        ),
+      ],
     );
   }
 }

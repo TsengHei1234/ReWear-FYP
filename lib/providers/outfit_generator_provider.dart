@@ -250,29 +250,43 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
   }
 
   /// Skip item(s) from the generator (skip-item = 1, skip-outfit = N).
-  /// Cascade-removes affected cards + refills, then syncs skip_count to
-  /// Supabase. The session is preserved across the resulting wardrobe refresh.
+  /// Persists to Supabase FIRST — the session is only mutated on success so
+  /// a network failure leaves the displayed outfits unchanged. isGenerating is
+  /// reset in both the success and failure paths.
   Future<void> skip(List<Item> skippedItems) async {
     if (skippedItems.isEmpty) return;
     state = state.copyWith(isGenerating: true);
 
-    // Run the pure cascade/replacement against the current wardrobe first so
-    // the displayed result is correct regardless of refresh timing. Use the
-    // GENERATED config (not the live filters) so a staged occasion/layer change
-    // doesn't leak into replacements before Regenerate (DECISIONS G1).
+    // Persist skip_count first. The guard is set before the await so the
+    // resulting wardrobe refresh (which fires after invalidateSelf) preserves
+    // the session. On failure we reset the guard and rethrow so runMutation
+    // can surface the error snackbar.
+    _preserveSessionOnce = true;
+    try {
+      await ref.read(wardrobeProvider.notifier).logSkippedItems(
+            skippedItems,
+            source: ItemEventSource.outfitGenerator,
+          );
+    } catch (_) {
+      _preserveSessionOnce = false;
+      state = state.copyWith(isGenerating: false);
+      rethrow;
+    }
+
+    // Supabase write succeeded — now safe to mutate the session.
     final result = _session.skip(
       _wardrobe,
       _activeConfig ?? _config,
       skippedItems.map((i) => i.id).toSet(),
     );
-    state = state.copyWith(outfits: result.outfits, isGenerating: false);
-
-    // Persist skip_count; this refreshes the wardrobe once — preserve session.
-    _preserveSessionOnce = true;
-    await ref.read(wardrobeProvider.notifier).logSkippedItems(
-          skippedItems,
-          source: ItemEventSource.outfitGenerator,
-        );
+    final newOutfits = result.outfits;
+    state = state.copyWith(
+      outfits: newOutfits,
+      isGenerating: false,
+      failureMessage: newOutfits.isEmpty
+          ? "You've gone through all options. Tap Regenerate to start fresh."
+          : null,
+    );
   }
 
   // ── internal ────────────────────────────────────────────────────────────

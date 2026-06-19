@@ -102,6 +102,7 @@ class AppColors {
   static const swatchNavy = Color(0xFF1E3A5F);
   static const swatchBlue = Color(0xFF3B82F6);
   static const swatchRed = Color(0xFFDC2626);
+  static const swatchOrange = Color(0xFFEA580C);
   static const swatchGreen = Color(0xFF22C55E); // NOT brand primary
   static const swatchBrown = Color(0xFF8B5E3C);
   static const swatchYellow = Color(0xFFEAB308);
