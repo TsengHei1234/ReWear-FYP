@@ -43,7 +43,7 @@ class OutfitExplanation {
   final List<RuleRow> ruleBreakdown;
 
   /// Short labels for the generator result card (occasion · primary [+N]).
-  /// Notable rotation positives only — colour/formality stay in the breakdown.
+  /// Always contains all 3 FRS entries (New Item prepended when present).
   final List<String> highlights;
 }
 
@@ -217,14 +217,14 @@ OutfitExplanation buildOutfitExplanation({
                           : '';
   final scoreMessage = '$band$suffix.';
 
-  // ── Highlights: short card labels (notable positives only). Ordered to
-  // match the RE "Why this outfit" priority (new item → rotation → skip →
-  // balance) so the card's PRIMARY label is the engine's strongest reason. ──
+  // ── Highlights: always all 3 FRS labels so the card can show any level
+  // (good/medium/bad). New Item leads when present. ruleBreakdown[0..2] are
+  // Temporal Decay / Skip Penalty / Wear Balance in priority order. ──
   final highlights = <String>[
     if (hasNewItem) 'New Item',
-    if (tdHigh) 'High Rotation',
-    if (skipClear) 'Low Skip Rate',
-    if (balanced) 'Balanced Wear',
+    _cardLabel(ruleBreakdown[0].badge),
+    _cardLabel(ruleBreakdown[1].badge),
+    _cardLabel(ruleBreakdown[2].badge),
   ];
 
   return OutfitExplanation(
@@ -294,4 +294,11 @@ String _occasionLabel(Occasion o) => switch (o) {
       Occasion.work => 'Work',
       Occasion.active => 'Active',
       Occasion.relax => 'Relax',
+    };
+
+/// Remaps breakdown badge labels to shorter card display names where needed.
+String _cardLabel(String badge) => switch (badge) {
+      'Clear' => 'Low Skip Rate',
+      'Balanced' => 'Balanced Wear',
+      _ => badge,
     };

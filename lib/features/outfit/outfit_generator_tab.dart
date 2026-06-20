@@ -522,10 +522,17 @@ class _ResultCard extends ConsumerWidget {
       now: DateTime.now(),
     );
     final highlights = exp.highlights;
+    // highlights always has 3 FRS entries (4 when New Item leads).
+    const badFrsLabels = {'Low Rotation', 'Penalty', 'Overused'};
     final primary = highlights.isEmpty ? null : highlights.first;
-    final extra = highlights.isEmpty ? 0 : highlights.length - 1;
-    final label =
-        primary == null ? _occLabel(occasion) : '${_occLabel(occasion)} · $primary';
+    final extra = highlights.length - 1;
+    final isBadFrs = primary != null && badFrsLabels.contains(primary);
+    final displayPrimary = isBadFrs ? '⚠ $primary' : primary;
+    final label = displayPrimary == null
+        ? _occLabel(occasion)
+        : '${_occLabel(occasion)} · $displayPrimary';
+    final isLoose = scored.formality.loose;
+    final isWeakColour = scored.colourScore < 0.60;
 
     return GestureDetector(
       onTap: onTap,
@@ -559,7 +566,7 @@ class _ResultCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                           color: c.textPrimary)),
                   const SizedBox(height: 4),
-                  // Occasion · primary highlight  [+N]
+                  // Occasion · primary FRS [+N] · ⚠ non-FRS warnings [+1]
                   Row(
                     children: [
                       Flexible(
@@ -577,6 +584,28 @@ class _ResultCard extends ConsumerWidget {
                       if (extra > 0) ...[
                         const SizedBox(width: 6),
                         _ExtraBadge(count: extra),
+                      ],
+                      if (isLoose || isWeakColour) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '· ⚠ ${isLoose ? 'Loose formality' : 'Weak colour match'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.utilisationAmber,
+                          ),
+                        ),
+                      ],
+                      if (isLoose && isWeakColour) ...[
+                        const SizedBox(width: 4),
+                        const Text(
+                          '+1',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.utilisationAmber,
+                          ),
+                        ),
                       ],
                     ],
                   ),

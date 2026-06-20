@@ -199,13 +199,13 @@ All BOTTOM items use condition threshold 58 wears.
 | Stored type | Display label | Default occasions | Allowed occasions | Default formality | Condition threshold |
 |---|---|---|---|---:|---:|
 | JEANS | Jeans | CASUAL | CASUAL, WORK, RELAX | 2 | 58 |
-| CASUAL_SHORTS | Casual shorts | CASUAL, RELAX | CASUAL, RELAX | 1 | 58 |
+| CASUAL_SHORTS | Casual shorts | CASUAL, RELAX | CASUAL, RELAX | 2 | 58 |
 | SPORT_SHORTS | Sport shorts | ACTIVE | ACTIVE, RELAX | 1 | 58 |
 | JOGGERS_SWEATPANTS | Joggers / Sweatpants | RELAX | RELAX, CASUAL, ACTIVE | 1 | 58 |
 | CHINOS | Chinos | CASUAL, WORK | CASUAL, WORK | 3 | 58 |
 | CASUAL_LONG_PANTS | Casual long pants | CASUAL | CASUAL, WORK | 3 | 58 |
 | FORMAL_TROUSERS_SLACKS | Formal trousers / Slacks | WORK | WORK | 4 | 58 |
-| SKIRT | Skirt | CASUAL | CASUAL, WORK | 3 | 58 |
+| SKIRT | Skirt | CASUAL | CASUAL, WORK | 2 | 58 |
 | DRESS_SKIRT | Dress skirt | WORK | WORK | 4 | 58 |
 | LEGGINGS | Leggings | ACTIVE, RELAX | ACTIVE, RELAX, CASUAL | 1 | 58 |
 | OTHER_BOTTOM | Other bottom | CASUAL | CASUAL, RELAX, ACTIVE, WORK | 2 | 58 |
@@ -222,7 +222,8 @@ All OUTERWEAR items use condition threshold 34 wears.
 | DENIM_JACKET | Denim jacket | CASUAL | CASUAL, RELAX | 2 | 34 |
 | BOMBER_JACKET | Bomber jacket | CASUAL | CASUAL, RELAX | 2 | 34 |
 | BLAZER | Blazer | WORK | WORK, CASUAL | 4 | 34 |
-| CASUAL_COAT_PARKA | Casual coat / Parka | CASUAL | CASUAL, WORK, RELAX | 3 | 34 |
+| PARKA | Parka | CASUAL | CASUAL, RELAX | 2 | 34 |
+| CASUAL_COAT | Casual coat | CASUAL | CASUAL, WORK | 3 | 34 |
 | FORMAL_COAT_OVERCOAT | Formal coat / Overcoat | WORK | WORK, CASUAL | 4 | 34 |
 | RAIN_JACKET_WINDBREAKER | Rain jacket / Windbreaker | CASUAL | CASUAL, ACTIVE | 2 | 34 |
 | OTHER_OUTERWEAR | Other outerwear | CASUAL | CASUAL, WORK, RELAX, ACTIVE | 2 | 34 |
@@ -239,7 +240,7 @@ All other footwear uses the normal-shoe threshold of 25 wears.
 | CASUAL_SNEAKERS | Casual sneakers | CASUAL | CASUAL, RELAX, WORK | 2 | 25 |
 | SLIP_ON_SHOES | Slip-on shoes | CASUAL, RELAX | CASUAL, RELAX | 2 | 25 |
 | LOAFERS | Loafers | CASUAL, WORK | CASUAL, WORK | 3 | 25 |
-| SANDALS | Sandals | CASUAL, RELAX | CASUAL, RELAX | 1 | 25 |
+| SANDALS | Sandals | CASUAL, RELAX | CASUAL, RELAX | 2 | 25 |
 | SLIPPERS_FLIP_FLOPS | Slippers / Flip-flops | RELAX | RELAX, CASUAL | 1 | 25 |
 | CASUAL_BOOTS | Casual boots | CASUAL | CASUAL, WORK | 3 | 25 |
 | FORMAL_SHOES | Formal shoes | WORK | WORK | 4 | 25 |

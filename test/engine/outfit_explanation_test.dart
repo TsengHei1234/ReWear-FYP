@@ -195,7 +195,7 @@ void main() {
       expect(e.highlights, contains('High Rotation'));
     });
 
-    test('empty when no notable rotation signal', () {
+    test('always returns all 3 FRS labels even when all are bad', () {
       final e = buildOutfitExplanation(
         outfit: twoItem(),
         scoresById: scores(tds: 0.20, sps: 0.50, wfss: 0.30, nibs: 0.0),
@@ -203,7 +203,18 @@ void main() {
         colourScore: 0.30,
         displayScore: 45,
       );
-      expect(e.highlights, isEmpty);
+      expect(e.highlights, ['Low Rotation', 'Penalty', 'Overused']);
+    });
+
+    test('always returns all 3 FRS labels when all are medium', () {
+      final e = buildOutfitExplanation(
+        outfit: twoItem(),
+        scoresById: scores(tds: 0.50, sps: 0.70, wfss: 0.55, nibs: 0.0),
+        formality: fr(matched: true),
+        colourScore: 0.90,
+        displayScore: 75,
+      );
+      expect(e.highlights, ['Medium Rotation', 'Minor Skips', 'Moderate']);
     });
   });
 }
