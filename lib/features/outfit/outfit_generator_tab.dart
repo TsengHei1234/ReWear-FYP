@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/enums.dart';
+import '../../core/constants/item_type_dictionary.dart';
 import '../../core/theme/app_color_scheme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/confirm_sheet.dart';
@@ -17,6 +18,7 @@ import '../../providers/profile_providers.dart';
 import '../../providers/wardrobe_providers.dart';
 import '../../routing/app_router.dart';
 import 'outfit_detail_page.dart';
+import 'widgets/type_filter_sheet.dart';
 
 /// Outfit Generator tab content. Source: FE §23 + RE generator behaviour.
 /// Session lifecycle per DECISIONS.md G1 (pinned protects the session).
@@ -84,7 +86,16 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
         const SizedBox(height: 12),
 
         // ── LAYERS ──────────────────────────────────────────────────
-        const _SectionLabel('Layers'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const _SectionLabel('Layers'),
+            _FilterButton(
+              active: state.selectedTypes.isNotEmpty,
+              onTap: _openTypeFilterSheet,
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
         _ChipScroll(children: [
           const _GenChip(label: 'Top', selected: true, locked: true),
@@ -108,6 +119,10 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
                 .setRequireShoes(!state.requireShoes)),
           ),
         ]),
+        if (state.selectedTypes.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _ActiveFilterSummary(selectedTypes: state.selectedTypes),
+        ],
         const SizedBox(height: 14),
 
         // ── Pinned strip ────────────────────────────────────────────
@@ -204,6 +219,30 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
       if (!ok) return;
     }
     ref.read(outfitGeneratorProvider.notifier).clearPin();
+  }
+
+  Future<void> _openTypeFilterSheet() async {
+    final state = ref.read(outfitGeneratorProvider);
+    final wardrobe = ref.read(wardrobeProvider).asData?.value ?? const [];
+    final result = await showModalBottomSheet<Map<ItemCategory, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => TypeFilterSheet(
+        selectedTypes: state.selectedTypes,
+        requireOuterwear: state.requireOuterwear,
+        requireShoes: state.requireShoes,
+        pinnedItem: state.pinnedItem,
+        occasion: state.occasion,
+        wardrobe: wardrobe,
+      ),
+    );
+    if (result == null || !mounted) return;
+    await _changeFilter(
+      () => ref
+          .read(outfitGeneratorProvider.notifier)
+          .setSelectedTypes(result),
+    );
   }
 
   void _showQuickWhy(BuildContext context, OutfitExplanation exp) {
@@ -703,6 +742,89 @@ class _EmptyGeneratorHint extends StatelessWidget {
           'Set your occasion and layers above,\nthen tap Generate to discover outfit combinations.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: c.textTertiary),
+        ),
+      ],
+    );
+  }
+}
+
+/// Filter icon + "Filter" label shown to the right of the LAYERS section header.
+/// Turns primary-green when at least one type filter is active.
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.active, required this.onTap});
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final color = active ? c.primary : c.textTertiary;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.filter_list, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            'Filter',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One-line summary of active type filters shown below the layer chips.
+/// Categories appear in a fixed order: Top → Bottom → Outerwear → Shoes.
+class _ActiveFilterSummary extends StatelessWidget {
+  const _ActiveFilterSummary({required this.selectedTypes});
+  final Map<ItemCategory, String> selectedTypes;
+
+  static const _order = [
+    ItemCategory.top,
+    ItemCategory.bottom,
+    ItemCategory.outerwear,
+    ItemCategory.footwear,
+  ];
+
+  String _catLabel(ItemCategory cat) => switch (cat) {
+        ItemCategory.top => 'Top',
+        ItemCategory.bottom => 'Bottom',
+        ItemCategory.outerwear => 'Outerwear',
+        ItemCategory.footwear => 'Shoes',
+        ItemCategory.others => 'Other',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final parts = [
+      for (final cat in _order)
+        if (selectedTypes.containsKey(cat))
+          '${_catLabel(cat)}: ${ItemTypeDictionary.byStoredValue(selectedTypes[cat]!)?.displayLabel ?? selectedTypes[cat]!}',
+    ];
+    return Row(
+      children: [
+        Icon(Icons.filter_list, size: 11, color: c.primary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            parts.join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: c.primary,
+            ),
+          ),
         ),
       ],
     );

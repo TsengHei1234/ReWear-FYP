@@ -21,6 +21,7 @@ class OutfitGeneratorState {
     this.failureMessage,
     this.hasGenerated = false,
     this.generatedOccasion,
+    this.selectedTypes = const {},
   });
 
   /// Selected (possibly staged) occasion filter for the chips (null = none yet).
@@ -44,11 +45,18 @@ class OutfitGeneratorState {
   /// Blocking loading state (generate / skip in flight).
   final bool isGenerating;
 
-  /// Engine failure message (empty pool / P1a / pinned formality), or null.
+  /// Engine failure message (empty pool / P1a / pinned formality / type filter),
+  /// or null.
   final String? failureMessage;
 
   /// True once an initial generation has produced a result this session.
   final bool hasGenerated;
+
+  /// Active Candidate Pool Type Filters: one storedValue per category.
+  /// Absent key = no filter for that layer. Cleared on occasion change, on
+  /// toggling a layer off, on pin set (for the pinned category), and on
+  /// wardrobe mutation.
+  final Map<ItemCategory, String> selectedTypes;
 
   static const Object _unset = Object();
 
@@ -62,6 +70,7 @@ class OutfitGeneratorState {
     Object? failureMessage = _unset,
     bool? hasGenerated,
     Object? generatedOccasion = _unset,
+    Map<ItemCategory, String>? selectedTypes,
   }) =>
       OutfitGeneratorState(
         occasion: occasion == _unset ? this.occasion : occasion as Occasion?,
@@ -77,6 +86,7 @@ class OutfitGeneratorState {
         generatedOccasion: generatedOccasion == _unset
             ? this.generatedOccasion
             : generatedOccasion as Occasion?,
+        selectedTypes: selectedTypes ?? this.selectedTypes,
       );
 }
 
@@ -139,13 +149,13 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
     _clearSession(clearPin: true);
   }
 
-  /// Clears the session + displayed result. Keeps the pin and filters unless
-  /// [clearPin] is set. Filters are never touched here.
+  /// Clears the session + displayed result. Keeps the pin unless [clearPin] is
+  /// set. clearPin=true (wardrobe mutation) also clears ALL type filters.
+  /// clearPin=false (clearGenerated after user confirms filter change) KEEPS
+  /// selectedTypes so the user's filter choices survive the card clear.
   void _clearSession({bool clearPin = false}) {
     _session.clear();
     _activeConfig = null;
-    // pinnedItem omitted from copyWith → kept (sentinel default); passed null
-    // → cleared.
     state = clearPin
         ? state.copyWith(
             outfits: const [],
@@ -154,6 +164,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
             failureMessage: null,
             pinnedItem: null,
             generatedOccasion: null,
+            selectedTypes: const {},
           )
         : state.copyWith(
             outfits: const [],
@@ -161,6 +172,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
             isGenerating: false,
             failureMessage: null,
             generatedOccasion: null,
+            // selectedTypes intentionally omitted → preserved
           );
   }
 
@@ -168,14 +180,37 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
   // here; the tab orchestrates reset/regenerate (pinned = staged until
   // Regenerate; no-pin = confirm-then-regenerate). ──────────────────────────
 
+  // Changing occasion invalidates type filters — the available types per
+  // occasion differ, so stale filters would silently empty pools.
   void setOccasion(Occasion? occasion) =>
-      state = state.copyWith(occasion: occasion);
+      state = state.copyWith(occasion: occasion, selectedTypes: const {});
 
-  void setRequireOuterwear(bool value) =>
-      state = state.copyWith(requireOuterwear: value);
+  void setRequireOuterwear(bool value) {
+    if (!value) {
+      // Turning outerwear OFF removes its type filter (slot no longer active).
+      final updated = Map<ItemCategory, String>.from(state.selectedTypes)
+        ..remove(ItemCategory.outerwear);
+      state = state.copyWith(requireOuterwear: false, selectedTypes: updated);
+    } else {
+      state = state.copyWith(requireOuterwear: true);
+    }
+  }
 
-  void setRequireShoes(bool value) =>
-      state = state.copyWith(requireShoes: value);
+  void setRequireShoes(bool value) {
+    if (!value) {
+      // Turning shoes OFF removes its type filter (slot no longer active).
+      final updated = Map<ItemCategory, String>.from(state.selectedTypes)
+        ..remove(ItemCategory.footwear);
+      state = state.copyWith(requireShoes: false, selectedTypes: updated);
+    } else {
+      state = state.copyWith(requireShoes: true);
+    }
+  }
+
+  /// Set (or replace) the candidate pool type filters. Called by the Type
+  /// Filter sheet on Apply.
+  void setSelectedTypes(Map<ItemCategory, String> types) =>
+      state = state.copyWith(selectedTypes: Map.from(types));
 
   /// Public "clear generated cards" — keeps the pin + filters, wipes the
   /// session/results so the button returns to "Generate Outfit". Used by the
@@ -198,9 +233,14 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
         isGenerating: false,
         failureMessage: null,
         generatedOccasion: null,
+        // selectedTypes preserved — unpinning doesn't clear user's filter choices
       );
       return;
     }
+    // Clear the type filter for the pinned category: the pin IS that slot,
+    // so a type filter there is redundant and could produce a confusing failure.
+    final updatedTypes = Map<ItemCategory, String>.from(state.selectedTypes)
+      ..remove(item.category);
     final occasion =
         (state.occasion != null && item.occasionTags.contains(state.occasion))
             ? state.occasion
@@ -219,6 +259,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
       isGenerating: false,
       failureMessage: null,
       generatedOccasion: null,
+      selectedTypes: updatedTypes,
     );
   }
 
@@ -304,6 +345,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
       mode: profile?.recommendationMode ?? RecommendationMode.balanced,
       preferredColours: profile?.preferredColours.toSet() ?? const {},
       dislikedColours: profile?.dislikedColours.toSet() ?? const {},
+      selectedTypes: state.selectedTypes,
       now: DateTime.now(),
     );
   }

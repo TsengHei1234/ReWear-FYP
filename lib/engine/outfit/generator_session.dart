@@ -27,6 +27,7 @@ class GeneratorConfig {
     this.mode = RecommendationMode.pureRotation,
     this.preferredColours = const {},
     this.dislikedColours = const {},
+    this.selectedTypes = const {},
     required this.now,
   });
 
@@ -37,6 +38,11 @@ class GeneratorConfig {
   final RecommendationMode mode;
   final Set<String> preferredColours;
   final Set<String> dislikedColours;
+
+  /// Candidate Pool Type Filter (one storedValue per active category, or absent
+  /// key = no filter). Applied inside poolFor before take(8).
+  final Map<ItemCategory, String> selectedTypes;
+
   final DateTime now;
 }
 
@@ -228,6 +234,12 @@ class GeneratorSession {
                 (i.formalityLevel - pinned!.formalityLevel).abs() <= 1)
             .toList();
       }
+      // Candidate Pool Type Filter — applied before take(8) so the cap doesn't
+      // hide the filtered type when the unfiltered type is more numerous.
+      final typeFilter = cfg.selectedTypes[cat];
+      if (typeFilter != null) {
+        candidates = candidates.where((i) => i.type == typeFilter).toList();
+      }
       return candidates.take(8).toList();
     }
 
@@ -236,6 +248,40 @@ class GeneratorSession {
     final outerwear =
         cfg.requireOuterwear ? poolFor(OutfitSlot.outerwear) : const <Item>[];
     final shoes = cfg.requireShoes ? poolFor(OutfitSlot.shoes) : const <Item>[];
+
+    // Candidate Pool Type Filter failure — if a type filter emptied a required
+    // slot that otherwise had candidates, surface the filter-specific message
+    // before the generic P1a message (and before the pinned formality message,
+    // since the user explicitly set a filter and that is the most actionable hint).
+    if (cfg.selectedTypes.isNotEmpty) {
+      final slotsToCheck = [
+        OutfitSlot.top,
+        OutfitSlot.bottom,
+        if (cfg.requireOuterwear) OutfitSlot.outerwear,
+        if (cfg.requireShoes) OutfitSlot.shoes,
+      ];
+      final slotPools = {
+        OutfitSlot.top: tops,
+        OutfitSlot.bottom: bottoms,
+        OutfitSlot.outerwear: outerwear,
+        OutfitSlot.shoes: shoes,
+      };
+      for (final slot in slotsToCheck) {
+        final cat = categoryForSlot(slot);
+        if (!cfg.selectedTypes.containsKey(cat)) continue;
+        if (slotPools[slot]!.isNotEmpty) continue;
+        // Slot is empty AND has an active type filter.
+        // Confirm raw candidates exist (i.e., filter — not Layer 1 — emptied it).
+        final hasRaw = pool
+            .any((i) => i.category == cat && !excludedItems.contains(i.id));
+        if (hasRaw) {
+          return _BuildResult.failure(
+            'No items match your type filter. '
+            'Try changing or clearing your filters.',
+          );
+        }
+      }
+    }
 
     // Step 0e failure — if the pinned formality pre-filter emptied a required
     // non-pinned layer that otherwise had candidates, surface the specific
