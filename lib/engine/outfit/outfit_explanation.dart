@@ -43,7 +43,7 @@ class OutfitExplanation {
   final List<RuleRow> ruleBreakdown;
 
   /// Short labels for the generator result card (occasion · primary [+N]).
-  /// Notable rotation positives only — colour/formality stay in the breakdown.
+  /// Always contains all 3 FRS entries (New Item prepended when present).
   final List<String> highlights;
 }
 
@@ -217,14 +217,30 @@ OutfitExplanation buildOutfitExplanation({
                           : '';
   final scoreMessage = '$band$suffix.';
 
-  // ── Highlights: short card labels (notable positives only). Ordered to
-  // match the RE "Why this outfit" priority (new item → rotation → skip →
-  // balance) so the card's PRIMARY label is the engine's strongest reason. ──
+  // ── Highlights: all 3 FRS labels sorted best-level-first.
+  // good (High Rotation / Clear / Balanced) > medium > bad.
+  // Within the same level, original RE priority order is preserved
+  // (Rotation → Skip → Balance) via indexed tiebreak.
+  // New Item leads when present, showing +3 instead of +2.
+  const goodBadges = {'High Rotation', 'Clear', 'Balanced'};
+  const badBadges = {'Low Rotation', 'Penalty', 'Overused'};
+  int frsLevel(String badge) =>
+      goodBadges.contains(badge) ? 2 : badBadges.contains(badge) ? 0 : 1;
+
+  final frsSorted = [
+    (0, ruleBreakdown[0]),
+    (1, ruleBreakdown[1]),
+    (2, ruleBreakdown[2]),
+  ]..sort((a, b) {
+      final diff = frsLevel(b.$2.badge).compareTo(frsLevel(a.$2.badge));
+      return diff != 0 ? diff : a.$1.compareTo(b.$1);
+    });
+
   final highlights = <String>[
     if (hasNewItem) 'New Item',
-    if (tdHigh) 'High Rotation',
-    if (skipClear) 'Low Skip Rate',
-    if (balanced) 'Balanced Wear',
+    _cardLabel(frsSorted[0].$2.badge),
+    _cardLabel(frsSorted[1].$2.badge),
+    _cardLabel(frsSorted[2].$2.badge),
   ];
 
   return OutfitExplanation(
@@ -294,4 +310,11 @@ String _occasionLabel(Occasion o) => switch (o) {
       Occasion.work => 'Work',
       Occasion.active => 'Active',
       Occasion.relax => 'Relax',
+    };
+
+/// Remaps breakdown badge labels to shorter card display names where needed.
+String _cardLabel(String badge) => switch (badge) {
+      'Clear' => 'Low Skip Rate',
+      'Balanced' => 'Balanced Wear',
+      _ => badge,
     };

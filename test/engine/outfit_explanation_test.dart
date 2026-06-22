@@ -171,7 +171,7 @@ void main() {
   });
 
   group('highlights (short card labels)', () {
-    test('ordered by RE Why-priority (rotation → skip → balance)', () {
+    test('when all same level (good), tiebreak gives rotation → skip → balance', () {
       final e = buildOutfitExplanation(
         outfit: twoItem(),
         scoresById: scores(tds: 0.90, sps: 0.90, wfss: 0.90, nibs: 0.0),
@@ -195,7 +195,7 @@ void main() {
       expect(e.highlights, contains('High Rotation'));
     });
 
-    test('empty when no notable rotation signal', () {
+    test('always returns all 3 FRS labels even when all are bad', () {
       final e = buildOutfitExplanation(
         outfit: twoItem(),
         scoresById: scores(tds: 0.20, sps: 0.50, wfss: 0.30, nibs: 0.0),
@@ -203,7 +203,44 @@ void main() {
         colourScore: 0.30,
         displayScore: 45,
       );
-      expect(e.highlights, isEmpty);
+      expect(e.highlights, ['Low Rotation', 'Penalty', 'Overused']);
+    });
+
+    test('always returns all 3 FRS labels when all are medium', () {
+      final e = buildOutfitExplanation(
+        outfit: twoItem(),
+        scoresById: scores(tds: 0.50, sps: 0.70, wfss: 0.55, nibs: 0.0),
+        formality: fr(matched: true),
+        colourScore: 0.90,
+        displayScore: 75,
+      );
+      expect(e.highlights, ['Medium Rotation', 'Minor Skips', 'Moderate']);
+    });
+
+    test('good beats bad: good skip rate takes primary over bad rotation', () {
+      // TDS bad (0.20 → Low Rotation), SPS good (0.90 → Clear → Low Skip Rate),
+      // WFSS bad (0.30 → Overused). Best level is good → Skip Rate is primary.
+      final e = buildOutfitExplanation(
+        outfit: twoItem(),
+        scoresById: scores(tds: 0.20, sps: 0.90, wfss: 0.30, nibs: 0.0),
+        formality: fr(matched: true),
+        colourScore: 0.90,
+        displayScore: 60,
+      );
+      expect(e.highlights, ['Low Skip Rate', 'Low Rotation', 'Overused']);
+    });
+
+    test('good beats medium: good balance takes primary over medium rotation', () {
+      // TDS medium (0.50 → Medium Rotation), SPS bad (0.50 → Penalty),
+      // WFSS good (0.90 → Balanced → Balanced Wear). Good beats medium → Balance first.
+      final e = buildOutfitExplanation(
+        outfit: twoItem(),
+        scoresById: scores(tds: 0.50, sps: 0.50, wfss: 0.90, nibs: 0.0),
+        formality: fr(matched: true),
+        colourScore: 0.90,
+        displayScore: 70,
+      );
+      expect(e.highlights, ['Balanced Wear', 'Medium Rotation', 'Penalty']);
     });
   });
 }

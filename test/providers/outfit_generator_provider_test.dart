@@ -205,15 +205,17 @@ void main() {
     final staged = c.read(outfitGeneratorProvider);
     expect(staged.occasion, Occasion.work);
     expect(staged.generatedOccasion, Occasion.casual,
-        reason: 'cards must not relabel until Regenerate');
+        reason: 'cards must not relabel until session is cleared');
     expect(staged.outfits, same(before));
 
-    // Regenerate applies the staged occasion to the generated set.
-    notifier.regenerate();
+    // Start Over (clearGenerated) then generate applies the staged occasion.
+    notifier.clearGenerated();
+    notifier.generate();
     expect(c.read(outfitGeneratorProvider).generatedOccasion, Occasion.work);
   });
 
-  test('regenerate keeps the pin and produces a fresh result (G1)', () async {
+  test('Start Over then generate keeps the pin and produces a fresh result (G1)',
+      () async {
     final c = await makeContainer();
     final notifier = c.read(outfitGeneratorProvider.notifier);
     final topItem = wardrobe.firstWhere((i) => i.category == ItemCategory.top);
@@ -222,11 +224,12 @@ void main() {
     notifier.generate();
     expect(c.read(outfitGeneratorProvider).hasGenerated, isTrue);
 
-    notifier.regenerate();
+    notifier.clearGenerated();
+    notifier.generate();
     final state = c.read(outfitGeneratorProvider);
     expect(state.hasGenerated, isTrue);
     expect(state.outfits, isNotEmpty);
-    expect(state.pinnedItem, topItem, reason: 'regenerate keeps the pin');
+    expect(state.pinnedItem, topItem, reason: 'Start Over keeps the pin');
   });
 
   test('clearing the pin resets the session (G1)', () async {

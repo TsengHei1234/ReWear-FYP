@@ -162,6 +162,97 @@ void main() {
     });
   });
 
+  group('P1D — tier-priority selection', () {
+    test('T1≥3: loose (T3) outfit hidden even when its OutfitScore is higher', () {
+      // tLo(formality=0, daysAgo=90) has very high FRS → its T3 outfit would
+      // rank first by raw OutfitScore. P1D must suppress it when T1 ≥ 3.
+      final wardrobe = [
+        top('tLo', formality: 0, colours: const ['white'], daysAgo: 90),
+        bottom('bHi', formality: 4, colours: const ['navy'], daysAgo: 10),
+        top('t1', formality: 2, colours: const ['white'], daysAgo: 10),
+        top('t2', formality: 2, colours: const ['white'], daysAgo: 10),
+        top('t3', formality: 2, colours: const ['white'], daysAgo: 10),
+        bottom('b1', formality: 2, colours: const ['navy'], daysAgo: 10),
+        bottom('b2', formality: 2, colours: const ['navy'], daysAgo: 10),
+      ];
+      final result = GeneratorSession().generate(wardrobe, cfg());
+      expect(result.ok, isTrue);
+      expect(result.outfits, hasLength(3));
+      expect(
+        result.outfits.every((o) => o.formality.matched),
+        isTrue,
+        reason: 'T1≥3 → all displayed cards must be matched, even when a '
+            'loose outfit has a higher OutfitScore',
+      );
+    });
+
+    test('T2 (matched+weak colour) fills before T3 (loose+acceptable) when T1 is empty', () {
+      // tClash(2,red)+bClash(2,green) = matched+red+green(0.30) → T2.
+      // tLo×3(0,white)+bHi×3(4,navy) produce T3 loose outfits (white+green=0.90).
+      // Old P1c would hide T2 because 3 "normal" (≥0.40) T3 outfits exist.
+      // P1D must show T2 because matched formality outranks loose formality.
+      final wardrobe = [
+        top('tClash', formality: 2, colours: const ['red'], daysAgo: 10),
+        top('tLo1', formality: 0, colours: const ['white'], daysAgo: 30),
+        top('tLo2', formality: 0, colours: const ['white'], daysAgo: 25),
+        top('tLo3', formality: 0, colours: const ['white'], daysAgo: 20),
+        bottom('bClash', formality: 2, colours: const ['green'], daysAgo: 10),
+        bottom('bHi1', formality: 4, colours: const ['navy'], daysAgo: 30),
+        bottom('bHi2', formality: 4, colours: const ['navy'], daysAgo: 25),
+        bottom('bHi3', formality: 4, colours: const ['navy'], daysAgo: 20),
+      ];
+      final result = GeneratorSession().generate(wardrobe, cfg());
+      expect(result.ok, isTrue);
+      expect(result.outfits, hasLength(3));
+      expect(
+        result.outfits.any((o) => o.formality.matched),
+        isTrue,
+        reason: 'P1D: matched+weak (T2) must appear before loose+acceptable (T3)',
+      );
+      expect(
+        result.outfits.any((o) => o.formality.loose),
+        isTrue,
+        reason: 'T3 outfits fill remaining slots when T1+T2 < 3',
+      );
+    });
+
+    test('generate() output is score-sorted descending', () {
+      final wardrobe = [
+        top('t1', daysAgo: 90),
+        top('t2', daysAgo: 45),
+        top('t3', daysAgo: 5),
+        bottom('b1', daysAgo: 90),
+        bottom('b2', daysAgo: 45),
+        bottom('b3', daysAgo: 5),
+      ];
+      final result = GeneratorSession().generate(wardrobe, cfg());
+      expect(result.ok, isTrue);
+      expect(result.outfits, hasLength(3));
+      final scores = result.outfits.map((o) => o.score).toList();
+      for (var i = 0; i < scores.length - 1; i++) {
+        expect(
+          scores[i],
+          greaterThanOrEqualTo(scores[i + 1]),
+          reason: 'outfits[$i].score must be ≥ outfits[${i + 1}].score',
+        );
+      }
+    });
+
+    test('T2 fallback: matched+weak outfit shown when it is the only option', () {
+      // Single red top (formality=2) + single green bottom (formality=2):
+      // diff=0 → matched, red+green=0.30 → T2. Ensure P1D surfaces it.
+      final wardrobe = [
+        top('tRed', formality: 2, colours: const ['red'], daysAgo: 30),
+        bottom('bGreen', formality: 2, colours: const ['green'], daysAgo: 30),
+      ];
+      final result = GeneratorSession().generate(wardrobe, cfg());
+      expect(result.ok, isTrue);
+      expect(result.outfits, hasLength(1));
+      expect(result.outfits.first.formality.matched, isTrue);
+      expect(result.outfits.first.colourScore, lessThan(0.40));
+    });
+  });
+
   group('generate — P1a failure', () {
     test('no bottoms → failure message', () {
       final wardrobe = [top('t1'), top('t2')];

@@ -264,7 +264,7 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
                                 const SizedBox(width: 5),
                                 Icon(
                                   Icons.tune,
-                                  size: 18,
+                                  size: 14,
                                   color: _filter.isActive
                                       ? c.primary
                                       : c.textSecondary,

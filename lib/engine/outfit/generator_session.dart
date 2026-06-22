@@ -136,6 +136,7 @@ class GeneratorSession {
       selected.addAll(ranked.take(3));
     }
 
+    selected.sort((a, b) => b.score.compareTo(a.score));
     _commit(selected);
     initialGenerationDone = true;
     useTbUniqueness = false;
@@ -228,7 +229,10 @@ class GeneratorSession {
           .toList()
         ..sort((a, b) => (frsById[b.id] ?? 0).compareTo(frsById[a.id] ?? 0));
       // Step 0e — pinned formality pre-filter on other layers.
-      if (pinned != null && pinned.category != cat) {
+      // Skip when the user has a type filter on this slot — they explicitly
+      // chose that type, so P1b handles the formality gap via loose=true.
+      final hasTypeFilterForSlot = cfg.selectedTypes.containsKey(cat);
+      if (pinned != null && pinned.category != cat && !hasTypeFilterForSlot) {
         candidates = candidates
             .where((i) =>
                 (i.formalityLevel - pinned!.formalityLevel).abs() <= 1)
@@ -381,18 +385,20 @@ class GeneratorSession {
       if (seen.add(so.comboKey)) ranked.add(so);
     }
 
-    // P1c colour reject / low-colour-score fallback (RE "P1c Behaviour
-    // thresholds"). normal = colourScore >= 0.40, clash = < 0.40. If there are
-    // >=3 normal combinations, reject all clashes; otherwise allow the best
-    // clashes (already score-ordered) to fill remaining slots. Both lists keep
-    // their OutfitScore order.
-    final normal = ranked.where((s) => s.colourScore >= 0.40).toList();
-    final clash = ranked.where((s) => s.colourScore < 0.40).toList();
-    final colourFiltered =
-        normal.length >= 3 ? normal : [...normal, ...clash];
+    // P1D — tier-priority reorder. Formality outranks colour within each tier:
+    //   T1: matched + acceptable colour (≥0.40)
+    //   T2: matched + weak colour (<0.40)
+    //   T3: loose + acceptable colour (≥0.40)
+    //   T4: loose + weak colour (<0.40)
+    // Full list returned (T1→T2→T3→T4, score-sorted within each tier) so
+    // T/B uniqueness, backfill, and skip replacement can iterate the full pool.
+    final t1 = ranked.where((s) => s.formality.matched && s.colourScore >= 0.40).toList();
+    final t2 = ranked.where((s) => s.formality.matched && s.colourScore <  0.40).toList();
+    final t3 = ranked.where((s) => s.formality.loose   && s.colourScore >= 0.40).toList();
+    final t4 = ranked.where((s) => s.formality.loose   && s.colourScore <  0.40).toList();
 
     return _BuildResult.success(
-      colourFiltered,
+      [...t1, ...t2, ...t3, ...t4],
       topPoolSize: tops.length,
       bottomPoolSize: bottoms.length,
     );

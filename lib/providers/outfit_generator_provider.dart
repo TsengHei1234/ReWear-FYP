@@ -176,9 +176,9 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
           );
   }
 
-  // ── Filters — DUMB field updates (DECISIONS G1). The session is NOT reset
-  // here; the tab orchestrates reset/regenerate (pinned = staged until
-  // Regenerate; no-pin = confirm-then-regenerate). ──────────────────────────
+  // ── Filters — DUMB field updates. The session is NOT reset here; the tab
+  // orchestrates confirm-then-clear when hasGenerated=true (covers both cards
+  // visible and the "no more combinations" state). ─────────────────────────
 
   // Changing occasion invalidates type filters — the available types per
   // occasion differ, so stale filters would silently empty pools.
@@ -283,13 +283,6 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
     );
   }
 
-  /// "Clear and regenerate" — wipe the skip/shown history and run a fresh
-  /// generation, KEEPING the pin + current filters (DECISIONS G1).
-  void regenerate() {
-    _clearSession();
-    generate();
-  }
-
   /// Skip item(s) from the generator (skip-item = 1, skip-outfit = N).
   /// Persists to Supabase FIRST — the session is only mutated on success so
   /// a network failure leaves the displayed outfits unchanged. isGenerating is
@@ -325,7 +318,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
       outfits: newOutfits,
       isGenerating: false,
       failureMessage: newOutfits.isEmpty
-          ? "You've gone through all options. Tap Regenerate to start fresh."
+          ? "You've gone through all combinations. Tap 'Start Over' to reset."
           : null,
     );
   }

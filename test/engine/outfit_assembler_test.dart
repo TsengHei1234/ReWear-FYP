@@ -17,12 +17,13 @@ void main() {
       expect(r.ok, isTrue);
       expect(r.message, isNull);
     });
-    test('no tops → fail with availability message', () {
+    test('no tops → fail naming tops', () {
       final r = canAssemble(tops: const [], bottoms: [bottom]);
       expect(r.ok, isFalse);
-      expect(r.message, contains('check item availability'));
+      expect(r.message, contains('Cannot build outfit'));
+      expect(r.message, contains('tops'));
     });
-    test('outerwear toggle on but none available → specific message', () {
+    test('outerwear toggle on but none available → names outerwear', () {
       final r = canAssemble(
         tops: [top],
         bottoms: [bottom],
@@ -30,9 +31,10 @@ void main() {
         outerwear: const [],
       );
       expect(r.ok, isFalse);
-      expect(r.message, contains('No available outerwear'));
+      expect(r.message, contains('Cannot build outfit'));
+      expect(r.message, contains('outerwear'));
     });
-    test('shoes toggle on but none available → specific message', () {
+    test('shoes toggle on but none available → names shoes', () {
       final r = canAssemble(
         tops: [top],
         bottoms: [bottom],
@@ -40,7 +42,27 @@ void main() {
         shoes: const [],
       );
       expect(r.ok, isFalse);
-      expect(r.message, contains('No available shoes'));
+      expect(r.message, contains('Cannot build outfit'));
+      expect(r.message, contains('shoes'));
+    });
+    test('outerwear and shoes both missing → names both', () {
+      final r = canAssemble(
+        tops: [top],
+        bottoms: [bottom],
+        requireOuterwear: true,
+        outerwear: const [],
+        requireShoes: true,
+        shoes: const [],
+      );
+      expect(r.ok, isFalse);
+      expect(r.message, contains('outerwear'));
+      expect(r.message, contains('shoes'));
+    });
+    test('tops and bottoms both missing → names both', () {
+      final r = canAssemble(tops: const [], bottoms: const []);
+      expect(r.ok, isFalse);
+      expect(r.message, contains('tops'));
+      expect(r.message, contains('bottoms'));
     });
     test('all toggles satisfied → ok', () {
       final r = canAssemble(
