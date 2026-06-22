@@ -217,14 +217,30 @@ OutfitExplanation buildOutfitExplanation({
                           : '';
   final scoreMessage = '$band$suffix.';
 
-  // ── Highlights: always all 3 FRS labels so the card can show any level
-  // (good/medium/bad). New Item leads when present. ruleBreakdown[0..2] are
-  // Temporal Decay / Skip Penalty / Wear Balance in priority order. ──
+  // ── Highlights: all 3 FRS labels sorted best-level-first.
+  // good (High Rotation / Clear / Balanced) > medium > bad.
+  // Within the same level, original RE priority order is preserved
+  // (Rotation → Skip → Balance) via indexed tiebreak.
+  // New Item leads when present, showing +3 instead of +2.
+  const goodBadges = {'High Rotation', 'Clear', 'Balanced'};
+  const badBadges = {'Low Rotation', 'Penalty', 'Overused'};
+  int frsLevel(String badge) =>
+      goodBadges.contains(badge) ? 2 : badBadges.contains(badge) ? 0 : 1;
+
+  final frsSorted = [
+    (0, ruleBreakdown[0]),
+    (1, ruleBreakdown[1]),
+    (2, ruleBreakdown[2]),
+  ]..sort((a, b) {
+      final diff = frsLevel(b.$2.badge).compareTo(frsLevel(a.$2.badge));
+      return diff != 0 ? diff : a.$1.compareTo(b.$1);
+    });
+
   final highlights = <String>[
     if (hasNewItem) 'New Item',
-    _cardLabel(ruleBreakdown[0].badge),
-    _cardLabel(ruleBreakdown[1].badge),
-    _cardLabel(ruleBreakdown[2].badge),
+    _cardLabel(frsSorted[0].$2.badge),
+    _cardLabel(frsSorted[1].$2.badge),
+    _cardLabel(frsSorted[2].$2.badge),
   ];
 
   return OutfitExplanation(

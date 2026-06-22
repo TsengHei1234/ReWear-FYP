@@ -61,7 +61,7 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
     final pin = state.pinnedItem;
     // Chips reflect the SELECTED occasion (staged); the result cards + Outfit
     // Detail show the occasion the cards were GENERATED with (DECISIONS G1) so a
-    // staged change doesn't relabel them until Regenerate.
+    // staged change doesn't relabel them until next generation.
     final selectedOccasion = state.occasion ?? Occasion.casual;
     final displayedOccasion = state.generatedOccasion ?? selectedOccasion;
 
@@ -116,18 +116,18 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
           const SizedBox(height: 14),
         ],
 
-        // ── Generate / Regenerate ───────────────────────────────────
+        // ── Generate / Start Over ───────────────────────────────────
         if (!state.hasGenerated)
           PrimaryButton(
             label: 'Generate Outfit',
-            onPressed: () =>
-                ref.read(outfitGeneratorProvider.notifier).generate(),
+            onPressed: state.isGenerating
+                ? null
+                : () => ref.read(outfitGeneratorProvider.notifier).generate(),
           )
         else
           OutlinedButtonWidget(
-            label: 'Regenerate',
-            onPressed: () =>
-                ref.read(outfitGeneratorProvider.notifier).regenerate(),
+            label: 'Start Over',
+            onPressed: state.isGenerating ? null : _startOver,
           ),
 
         // ── Empty state hint (before first generation / after reset) ─
@@ -167,43 +167,68 @@ class _OutfitGeneratorTabState extends ConsumerState<OutfitGeneratorTab> {
     );
   }
 
-  /// Filter-change orchestration (DECISIONS G1). Pinned → staged (apply, no
-  /// reset). No-pin + outfits visible → warn; on Continue apply the new filter
-  /// and CLEAR the generated cards (button returns to "Generate Outfit"); the
-  /// user re-generates manually. Cancel → keep old cards + old filter. Else apply.
+  /// Filter-change orchestration. Active session (hasGenerated=true, including
+  /// the "no more combinations" state) → warn before applying any filter change;
+  /// on confirm apply the new filter and clear the session (button returns to
+  /// "Generate Outfit"). Cancel → keep old cards + old filter. Else apply
+  /// directly. Blocked while skip replacement is loading.
   Future<void> _changeFilter(VoidCallback apply) async {
     final state = ref.read(outfitGeneratorProvider);
-    if (state.pinnedItem == null && state.outfits.isNotEmpty) {
+    if (state.isGenerating) return;
+    if (state.hasGenerated) {
       final ok = await showConfirmSheet(
         context,
-        icon: Icons.refresh,
+        icon: Icons.filter_list,
         title: 'Change filters?',
-        message: 'This will clear your generated outfits.',
-        confirmLabel: 'Continue',
+        message:
+            'This will clear your current generated outfits and skipped items for this session.',
+        confirmLabel: 'Change Filters',
       );
-      if (!ok) return; // Cancel → keep cards + previous filter
+      if (!ok) return;
       apply();
       ref.read(outfitGeneratorProvider.notifier).clearGenerated();
     } else {
-      apply(); // pinned = staged until Regenerate; or nothing generated yet
+      apply(); // nothing generated yet — apply directly
     }
   }
 
-  /// Remove the pin. Confirms first only when outfits are visible (removing the
-  /// pin resets the session and clears them — DECISIONS G1).
+  /// Remove the pin. Confirms first when an active session exists (hasGenerated
+  /// = true, covers both cards visible and "no more combinations" states).
+  /// Blocked while skip replacement is loading.
   Future<void> _clearPin() async {
-    if (ref.read(outfitGeneratorProvider).outfits.isNotEmpty) {
+    final state = ref.read(outfitGeneratorProvider);
+    if (state.isGenerating) return;
+    if (state.hasGenerated) {
       final ok = await showConfirmSheet(
         context,
         icon: Icons.close,
         title: 'Remove pinned item?',
-        message: 'This clears your current generated outfits.',
-        confirmLabel: 'Remove',
+        message:
+            'This will clear your current generated outfits and start a new generation setup.',
+        confirmLabel: 'Remove Pin',
         isDestructive: true,
       );
       if (!ok) return;
     }
     ref.read(outfitGeneratorProvider.notifier).clearPin();
+  }
+
+  /// Start Over — clears the active session and skipped items for this session
+  /// (does NOT touch database skip_count or item_events). Blocked while loading.
+  Future<void> _startOver() async {
+    if (!mounted) return;
+    final state = ref.read(outfitGeneratorProvider);
+    if (state.isGenerating) return;
+    final ok = await showConfirmSheet(
+      context,
+      icon: Icons.refresh,
+      title: 'Start over?',
+      message:
+          'This will clear your current generated outfits and skipped items for this session.',
+      confirmLabel: 'Start Over',
+    );
+    if (!ok || !mounted) return;
+    ref.read(outfitGeneratorProvider.notifier).clearGenerated();
   }
 
   void _showQuickWhy(BuildContext context, OutfitExplanation exp) {
@@ -566,7 +591,7 @@ class _ResultCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                           color: c.textPrimary)),
                   const SizedBox(height: 4),
-                  // Occasion · primary FRS [+N] · ⚠ non-FRS warnings [+1]
+                  // Line 1: Occasion · primary FRS [+N]
                   Row(
                     children: [
                       Flexible(
@@ -585,30 +610,35 @@ class _ResultCard extends ConsumerWidget {
                         const SizedBox(width: 6),
                         _ExtraBadge(count: extra),
                       ],
-                      if (isLoose || isWeakColour) ...[
-                        const SizedBox(width: 6),
+                    ],
+                  ),
+                  // Line 2 (amber): ⚠ non-FRS warnings [+1] — own row so line 1 never truncates
+                  if (isLoose || isWeakColour) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
                         Text(
-                          '· ⚠ ${isLoose ? 'Loose formality' : 'Weak colour match'}',
+                          '⚠ ${isLoose ? 'Loose formality' : 'Weak colour match'}',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: AppColors.utilisationAmber,
                           ),
                         ),
-                      ],
-                      if (isLoose && isWeakColour) ...[
-                        const SizedBox(width: 4),
-                        const Text(
-                          '+1',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.utilisationAmber,
+                        if (isLoose && isWeakColour) ...[
+                          const SizedBox(width: 4),
+                          const Text(
+                            '+1',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.utilisationAmber,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   // Item thumbnails (responsive — share the row width equally).
                   Row(

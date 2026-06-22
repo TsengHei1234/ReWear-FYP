@@ -21,6 +21,7 @@ class AssembleCheck {
 /// Pre-checks whether ANY valid outfit can be built from the candidate pools.
 /// Required: ≥1 top AND ≥1 bottom. Toggled layers must have ≥1 candidate.
 /// A pinned item's layer is satisfied by passing a non-empty pool for it.
+/// Collects ALL missing layers before returning so the message names every gap.
 AssembleCheck canAssemble({
   required List<Item> tops,
   required List<Item> bottoms,
@@ -29,17 +30,25 @@ AssembleCheck canAssemble({
   bool requireOuterwear = false,
   bool requireShoes = false,
 }) {
-  if (tops.isEmpty || bottoms.isEmpty) {
-    return const AssembleCheck.fail(
-        'Cannot build outfit — check item availability');
-  }
-  if (requireOuterwear && outerwear.isEmpty) {
-    return const AssembleCheck.fail('No available outerwear for this occasion');
-  }
-  if (requireShoes && shoes.isEmpty) {
-    return const AssembleCheck.fail('No available shoes for this occasion');
-  }
-  return const AssembleCheck.ok();
+  final missing = <String>[];
+  if (tops.isEmpty) missing.add('tops');
+  if (bottoms.isEmpty) missing.add('bottoms');
+  if (requireOuterwear && outerwear.isEmpty) missing.add('outerwear');
+  if (requireShoes && shoes.isEmpty) missing.add('shoes');
+  if (missing.isEmpty) return const AssembleCheck.ok();
+  return AssembleCheck.fail(
+    'Cannot build outfit — no available ${_joinLayers(missing)} for this occasion.',
+  );
+}
+
+/// Formats a list of layer names into natural English.
+/// 1 item: "tops"  2 items: "tops or bottoms"  3+: "tops, bottoms, or shoes"
+String _joinLayers(List<String> layers) {
+  if (layers.length == 1) return layers[0];
+  if (layers.length == 2) return '${layers[0]} or ${layers[1]}';
+  final last = layers.last;
+  final rest = layers.sublist(0, layers.length - 1).join(', ');
+  return '$rest, or $last';
 }
 
 // ── P1c — Colour Compatibility Score ────────────────────────────────────────

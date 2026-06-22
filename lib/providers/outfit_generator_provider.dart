@@ -139,13 +139,11 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
     _clearSession(clearPin: true);
   }
 
-  /// Clears the session + displayed result. Keeps the pin and filters unless
-  /// [clearPin] is set. Filters are never touched here.
+  /// Clears the session + displayed result. Keeps the pin unless [clearPin] is
+  /// set.
   void _clearSession({bool clearPin = false}) {
     _session.clear();
     _activeConfig = null;
-    // pinnedItem omitted from copyWith → kept (sentinel default); passed null
-    // → cleared.
     state = clearPin
         ? state.copyWith(
             outfits: const [],
@@ -164,9 +162,9 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
           );
   }
 
-  // ── Filters — DUMB field updates (DECISIONS G1). The session is NOT reset
-  // here; the tab orchestrates reset/regenerate (pinned = staged until
-  // Regenerate; no-pin = confirm-then-regenerate). ──────────────────────────
+  // ── Filters — DUMB field updates. The session is NOT reset here; the tab
+  // orchestrates confirm-then-clear when hasGenerated=true (covers both cards
+  // visible and the "no more combinations" state). ─────────────────────────
 
   void setOccasion(Occasion? occasion) =>
       state = state.copyWith(occasion: occasion);
@@ -242,13 +240,6 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
     );
   }
 
-  /// "Clear and regenerate" — wipe the skip/shown history and run a fresh
-  /// generation, KEEPING the pin + current filters (DECISIONS G1).
-  void regenerate() {
-    _clearSession();
-    generate();
-  }
-
   /// Skip item(s) from the generator (skip-item = 1, skip-outfit = N).
   /// Persists to Supabase FIRST — the session is only mutated on success so
   /// a network failure leaves the displayed outfits unchanged. isGenerating is
@@ -284,7 +275,7 @@ class OutfitGeneratorNotifier extends Notifier<OutfitGeneratorState> {
       outfits: newOutfits,
       isGenerating: false,
       failureMessage: newOutfits.isEmpty
-          ? "You've gone through all options. Tap Regenerate to start fresh."
+          ? "You've gone through all combinations. Tap 'Start Over' to reset."
           : null,
     );
   }
