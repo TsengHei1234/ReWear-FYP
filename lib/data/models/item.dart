@@ -203,6 +203,7 @@ class Item {
     int? condition,
     ConditionReviewMode? conditionReviewMode,
     int? conditionNextDrop,
+    bool clearConditionNextDrop = false,
     bool? isFavorite,
     ItemStatus? status,
     bool? isNewItem,
@@ -229,7 +230,9 @@ class Item {
         formalityLevel: formalityLevel ?? this.formalityLevel,
         condition: condition ?? this.condition,
         conditionReviewMode: conditionReviewMode ?? this.conditionReviewMode,
-        conditionNextDrop: conditionNextDrop ?? this.conditionNextDrop,
+        conditionNextDrop: clearConditionNextDrop
+            ? null
+            : (conditionNextDrop ?? this.conditionNextDrop),
         isFavorite: isFavorite ?? this.isFavorite,
         status: status ?? this.status,
         dateAdded: dateAdded,

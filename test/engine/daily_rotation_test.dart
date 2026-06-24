@@ -79,6 +79,30 @@ void main() {
         'Overused',
       );
     });
+    test('1 wear / 5 days (rate 0.20) → Balanced wear, not Overused '
+        '(evidence floor)', () {
+      expect(
+        wearStatusLabel(
+            makeItem(wearCount: 1, dateAdded: now.subtract(const Duration(days: 5))),
+            now: now),
+        'Balanced wear',
+      );
+    });
+    test('pre-owned item uses initialUsageAgeDays (not overused)', () {
+      // 30 wears, added 100 days ago, owned 365 days before the app.
+      // Canonical wear rate = 30 / (365 + 100) = 0.065 → Balanced wear,
+      // NOT 30 / 100 = 0.30 → Overused.
+      expect(
+        wearStatusLabel(
+            makeItem(
+              wearCount: 30,
+              dateAdded: now.subtract(const Duration(days: 100)),
+              initialUsageAgeDays: 365,
+            ),
+            now: now),
+        'Balanced wear',
+      );
+    });
   });
 
   group('wear count label', () {

@@ -277,11 +277,18 @@ class _ItemFormPageState extends ConsumerState<ItemFormPage> {
     final existing = widget.existingItem!;
     final typeDef = _selectedTypeDef!;
     final now = DateTime.now();
-    final threshold = conditionThreshold(_selectedType!);
-    int? nextDrop;
-    if (_reviewMode == ConditionReviewMode.auto && _condition > 1) {
-      nextDrop = existing.wearCount + threshold;
-    }
+    // Preserve the existing AUTO drop schedule unless condition / type /
+    // mode changed — an unrelated edit must not delay the next drop (BUG-2).
+    final nextDrop = resolveConditionNextDropOnEdit(
+      newMode: _reviewMode,
+      newCondition: _condition,
+      newType: _selectedType!,
+      wearCount: existing.wearCount,
+      existingMode: existing.conditionReviewMode,
+      existingCondition: existing.condition,
+      existingType: existing.type,
+      existingNextDrop: existing.conditionNextDrop,
+    );
 
     final updated = Item(
       id: existing.id,

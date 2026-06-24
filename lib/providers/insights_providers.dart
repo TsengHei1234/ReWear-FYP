@@ -100,13 +100,9 @@ final insightsProvider = FutureProvider.autoDispose<InsightsData?>((ref) async {
     utilisationPct =
         ((wornLast30 / active.length) * 100).round().clamp(0, 100);
 
-    // wear_rate via shared itemWearRate (matches locked WFSS formula)
-    final overusedCount = active
-        .where((i) {
-          if (i.status != ItemStatus.inWardrobe) return false;
-          return itemWearRate(i, now) >= 0.20;
-        })
-        .length;
+    // Overused via the shared predicate (rate >= 0.20 AND wear_count >= 3,
+    // IN_WARDROBE only) so the count matches computeWardrobeHealth + insights.
+    final overusedCount = active.where((i) => isOverused(i, now: now)).length;
     rotationPct =
         ((1 - (overusedCount / active.length)) * 100).round().clamp(0, 100);
   }

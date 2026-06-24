@@ -1,6 +1,7 @@
 import '../../core/constants/enums.dart';
 import '../../data/models/item.dart';
 import '../filters/layer1_filters.dart';
+import '../insights/health_score.dart';
 import '../scoring/frs.dart';
 
 /// Daily Rotation — Backend Behaviour (RE). Recommends individual items.
@@ -58,15 +59,18 @@ String lastWornLabel(Item item, {required DateTime now}) {
   return 'Last worn: ${d}d ago';
 }
 
-/// Factual usage-pattern label (wear_rate = wear_count / max(days_since_added, 1)).
+/// Factual usage-pattern label. Uses the canonical [itemWearRate] (shared with
+/// WFSS / badges / insights), so the usage_period_days includes
+/// initialUsageAgeDays unless initialWearCountOption == 'dontRemember'.
+/// "Overused" applies only with enough evidence ([isOverusedRate]: wear_count
+/// >= 3); a high rate from 1–2 wears reads "Balanced wear", not "Overused".
 String wearStatusLabel(Item item, {required DateTime now}) {
   if (item.wearCountUnknown) return 'Usage unknown';
   if (item.wearCount == 0) return 'Never worn';
-  final days = now.difference(item.dateAdded).inDays;
-  final wearRate = item.wearCount / (days < 1 ? 1 : days);
+  if (isOverusedRate(item, now)) return 'Overused';
+  final wearRate = itemWearRate(item, now);
   if (wearRate < 0.05) return 'Rarely worn';
-  if (wearRate < 0.20) return 'Balanced wear';
-  return 'Overused';
+  return 'Balanced wear';
 }
 
 /// Factual wear-count label.

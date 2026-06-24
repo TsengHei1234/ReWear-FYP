@@ -53,6 +53,7 @@ class WardrobeFilter {
 enum WardrobeSortBy {
   recentlyWorn('Recently worn'),
   oldestWorn('Oldest worn'),
+  recentlyAdded('Recently added'),
   nameAZ('Name A–Z'),
   mostWorn('Most worn');
 
@@ -141,6 +142,8 @@ class _WardrobePageState extends ConsumerState<WardrobePage> {
           if (b.lastWornDate == null) return -1;
           return a.lastWornDate!.compareTo(b.lastWornDate!);
         });
+      case WardrobeSortBy.recentlyAdded:
+        result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       case WardrobeSortBy.nameAZ:
         result.sort((a, b) => a.name.compareTo(b.name));
       case WardrobeSortBy.mostWorn:

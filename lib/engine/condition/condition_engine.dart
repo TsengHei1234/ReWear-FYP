@@ -1,3 +1,4 @@
+import '../../core/constants/enums.dart';
 import '../../core/constants/item_type_dictionary.dart';
 import '../../data/models/item.dart';
 
@@ -33,11 +34,15 @@ Item checkAutoConditionDrop(Item item) {
 
   final newCondition = item.condition - 1;
   final threshold = conditionThreshold(item.type);
-  final newNextDrop = newCondition <= 1 ? null : item.wearCount + threshold;
+
+  if (newCondition <= 1) {
+    // Floor reached — no more drops; condition_next_drop must be NULL.
+    return item.copyWith(condition: newCondition, clearConditionNextDrop: true);
+  }
 
   return item.copyWith(
     condition: newCondition,
-    conditionNextDrop: newNextDrop,
+    conditionNextDrop: item.wearCount + threshold,
   );
 }
 
@@ -49,3 +54,37 @@ int? recalcNextDropAfterManualConditionChange(Item item) =>
 /// Called when category or type changes on Edit Item — recalculates threshold.
 int? recalcNextDropAfterTypeChange(Item item) =>
     computeConditionNextDrop(item);
+
+/// Resolves `condition_next_drop` when an item is saved from Edit Item.
+///
+/// Source: Rule Engine "condition_next_drop logic". The existing absolute drop
+/// schedule is **preserved** unless something that affects it changed, so an
+/// unrelated edit (name/photo/colour/occasion/favourite) does NOT delay the
+/// next AUTO condition drop:
+///   - new mode == MANUAL → null
+///   - new condition == 1 → null
+///   - condition changed, or type/threshold changed, or mode went MANUAL→AUTO
+///     → recompute `wear_count + new_threshold`
+///   - otherwise → preserve [existingNextDrop]
+int? resolveConditionNextDropOnEdit({
+  required ConditionReviewMode newMode,
+  required int newCondition,
+  required String newType,
+  required int wearCount,
+  required ConditionReviewMode existingMode,
+  required int existingCondition,
+  required String existingType,
+  required int? existingNextDrop,
+}) {
+  if (newMode == ConditionReviewMode.manual) return null;
+  if (newCondition <= 1) return null;
+
+  final conditionChanged = newCondition != existingCondition;
+  final thresholdChanged = newType != existingType;
+  final reactivatedAuto = existingMode == ConditionReviewMode.manual;
+
+  if (conditionChanged || thresholdChanged || reactivatedAuto) {
+    return wearCount + conditionThreshold(newType);
+  }
+  return existingNextDrop;
+}

@@ -29,6 +29,18 @@ double itemWearRate(Item i, DateTime now) {
   return i.wearCount / usagePeriodDays;
 }
 
+/// Minimum logged wears before an item can be flagged Overused (Phase 11
+/// evidence floor). A single high wear-rate from one wear on a brand-new item
+/// is not enough evidence to call it overused.
+const int kOverusedMinWears = 3;
+
+/// Shared Overused eligibility (status-agnostic): the wear rate is saturated
+/// AND there is enough evidence. Keeps the locked 0.20 threshold; adds only the
+/// `wear_count >= kOverusedMinWears` floor. Use this everywhere "Overused" is
+/// decided (badges, daily-rotation label, insights) so they stay consistent.
+bool isOverusedRate(Item i, DateTime now) =>
+    i.wearCount >= kOverusedMinWears && itemWearRate(i, now) >= 0.20;
+
 int? _daysSinceWorn(Item i, DateTime now) =>
     i.lastWornDate == null ? null : now.difference(i.lastWornDate!).inDays;
 
@@ -95,7 +107,7 @@ WardrobeHealth computeWardrobeHealth(
 
   final overused = active
       .where((i) =>
-          i.status == ItemStatus.inWardrobe && itemWearRate(i, now) >= 0.20)
+          i.status == ItemStatus.inWardrobe && isOverusedRate(i, now))
       .length;
   final rotationScore = (1 - (overused / active.length)) * 100 * 0.50;
 
@@ -165,7 +177,7 @@ bool isLongUnused(Item i, {required DateTime now}) {
 bool isSkippedOften(Item i) => _isActive(i) && _rawSkipRatio(i) > 0.50;
 
 bool isOverused(Item i, {required DateTime now}) =>
-    i.status == ItemStatus.inWardrobe && itemWearRate(i, now) >= 0.20;
+    i.status == ItemStatus.inWardrobe && isOverusedRate(i, now);
 
 bool isSleeping(Item i, {required DateTime now}) {
   if (!_isActive(i) || i.wearCount == 0) return false;

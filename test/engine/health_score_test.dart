@@ -127,6 +127,64 @@ void main() {
         isTrue,
       );
     });
+
+    group('Overused evidence floor (Phase 11: wear_count >= 3)', () {
+      test('1 wear / 5 days (rate 0.20) → not overused', () {
+        final item = makeItem(
+            wearCount: 1, dateAdded: now.subtract(const Duration(days: 5)));
+        expect(itemWearRate(item, now), greaterThanOrEqualTo(0.20));
+        expect(isOverusedRate(item, now), isFalse);
+        expect(isOverused(item, now: now), isFalse);
+      });
+      test('2 wears / 10 days (rate 0.20) → not overused', () {
+        final item = makeItem(
+            wearCount: 2, dateAdded: now.subtract(const Duration(days: 10)));
+        expect(isOverused(item, now: now), isFalse);
+      });
+      test('3 wears / 15 days (rate 0.20) → overused (floor reached)', () {
+        final item = makeItem(
+            wearCount: 3, dateAdded: now.subtract(const Duration(days: 15)));
+        expect(isOverused(item, now: now), isTrue);
+      });
+      test('heavy use still overused (25 wears / 8 days)', () {
+        final item = makeItem(
+            wearCount: 25, dateAdded: now.subtract(const Duration(days: 8)));
+        expect(isOverused(item, now: now), isTrue);
+      });
+    });
+
+    test('70d item is Long Unused but NOT Sleeping (>60 vs >=90 separation)', () {
+      final item = makeItem(
+          wearCount: 3, lastWornDate: now.subtract(const Duration(days: 70)));
+      expect(isLongUnused(item, now: now), isTrue);
+      expect(isSleeping(item, now: now), isFalse);
+    });
+
+    test('last_worn_unknown item is NOT faked as Long Unused', () {
+      final item = makeItem(
+        wearCount: 3,
+        lastWornUnknown: true,
+        lastWornDate: null,
+      );
+      expect(isLongUnused(item, now: now), isFalse);
+      expect(isSleeping(item, now: now), isFalse);
+    });
+
+    test('isSkippedOften true for wear_count=5, skip_count=6 (ratio 0.545)', () {
+      expect(isSkippedOften(makeItem(wearCount: 5, skipCount: 6)), isTrue);
+    });
+
+    test('kept_until item still matches Insights predicates '
+        '(kept suppresses donation only, not insights)', () {
+      // 100 days unused + future kept_until: still Long Unused + Sleeping.
+      final item = makeItem(
+        wearCount: 3,
+        lastWornDate: now.subtract(const Duration(days: 100)),
+        keptUntil: now.add(const Duration(days: 365)),
+      );
+      expect(isLongUnused(item, now: now), isTrue);
+      expect(isSleeping(item, now: now), isTrue);
+    });
   });
 
   group('itemWearRate (corrected formula)', () {

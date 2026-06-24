@@ -47,7 +47,7 @@ class BadgeChip extends StatelessWidget {
         BadgeType.neverWorn => 'Never worn',
         BadgeType.longUnused => 'Long unused',
         BadgeType.isNew => 'New',
-        BadgeType.mostWorn => 'Most worn',
+        BadgeType.mostWorn => 'Top Worn',
       };
 
   static (Color, Color) _colours(BadgeType b) => switch (b) {

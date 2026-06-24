@@ -58,8 +58,9 @@ List<BadgeType> computeAllBadges(Item item, List<Item> allItems, {DateTime? now}
     badges.add(BadgeType.donationReview);
   }
 
-  // P3 — Overused: uses shared itemWearRate() (initialUsageAgeDays + daysSinceAdded)
-  if (hs.itemWearRate(item, effectiveNow) >= 0.20) badges.add(BadgeType.overused);
+  // P3 — Overused: shared eligibility = wear_rate >= 0.20 AND wear_count >= 3
+  // (Phase 11 evidence floor; one wear on a new item is not overused).
+  if (hs.isOverusedRate(item, effectiveNow)) badges.add(BadgeType.overused);
 
   // P4 — Skipped often: skip_ratio > 0.50 (strict RE — guarded raw ratio,
   // 0 when there are no interactions to avoid divide-by-zero).
