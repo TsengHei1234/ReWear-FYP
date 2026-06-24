@@ -47,7 +47,8 @@ class InsightsData {
   /// Attention tab — Skipped Often (skip_ratio > 0.50).
   final List<Item> skippedOftenItems;
 
-  /// Attention tab — Overused (wear_rate >= 0.20, IN_WARDROBE only).
+  /// Attention tab — Overused (itemWearRate >= 0.20 AND wear_count >= 3
+  /// [Phase 11 evidence floor], IN_WARDROBE only).
   final List<Item> overusedItems;
 
   /// Utilisation section "View All" + View-All sub-page (days_since_worn >= 90,
@@ -100,8 +101,9 @@ final insightsProvider = FutureProvider.autoDispose<InsightsData?>((ref) async {
     utilisationPct =
         ((wornLast30 / active.length) * 100).round().clamp(0, 100);
 
-    // Overused via the shared predicate (rate >= 0.20 AND wear_count >= 3,
-    // IN_WARDROBE only) so the count matches computeWardrobeHealth + insights.
+    // Overused via the shared predicate (itemWearRate >= 0.20 AND
+    // wear_count >= 3 [Phase 11 evidence floor], IN_WARDROBE only) so the
+    // count matches computeWardrobeHealth + insights.
     final overusedCount = active.where((i) => isOverused(i, now: now)).length;
     rotationPct =
         ((1 - (overusedCount / active.length)) * 100).round().clamp(0, 100);

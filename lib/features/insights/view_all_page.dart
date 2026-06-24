@@ -23,13 +23,21 @@ class ViewAllPage extends ConsumerStatefulWidget {
 }
 
 class _ViewAllPageState extends ConsumerState<ViewAllPage> {
-  static const _chipLabels = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes'];
+  static const _chipLabels = [
+    'All',
+    'Tops',
+    'Bottoms',
+    'Outerwear',
+    'Shoes',
+    'Others',
+  ];
   static const _chipCategories = [
     null,
     ItemCategory.top,
     ItemCategory.bottom,
     ItemCategory.outerwear,
     ItemCategory.footwear,
+    ItemCategory.others,
   ];
   int _chipIndex = 0;
 

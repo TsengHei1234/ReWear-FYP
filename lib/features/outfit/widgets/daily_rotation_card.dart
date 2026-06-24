@@ -201,7 +201,30 @@ class _Photo extends StatelessWidget {
   }
 }
 
-/// Score status label — light-green pill, dark-green text, ~image width.
+/// Theme-aware score band for the Daily Rotation badge. Display-only thresholds
+/// (≥80 strong · ≥60 medium · <60 weak). Picks dark-friendly colours in dark
+/// mode so the pill doesn't read as a light-theme chip on a dark card. Does not
+/// touch any score value, threshold, or ranking.
+(Color bg, Color fg) _scoreBandColours(BuildContext context, int score) {
+  final c = context.colors;
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  if (score >= 80) {
+    // Strong → theme green (light pastel ⇄ muted dark green via theme tokens).
+    return (c.primaryLight, c.onPrimaryLight);
+  }
+  if (score >= 60) {
+    // Medium → amber.
+    return dark
+        ? (const Color(0xFF3A2F12), const Color(0xFFF1C75A))
+        : (AppColors.badgeNeverWornBg, AppColors.badgeNeverWornText);
+  }
+  // Weak → red.
+  return dark
+      ? (const Color(0xFF3A1D1D), const Color(0xFFF0A1A1))
+      : (AppColors.badgeWornOutBg, AppColors.badgeWornOutText);
+}
+
+/// Score status label — themed band pill (green/amber/red), ~image width.
 class _ScorePill extends StatelessWidget {
   const _ScorePill({required this.score});
 
@@ -209,12 +232,12 @@ class _ScorePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
+    final (bg, fg) = _scoreBandColours(context, score);
     return Container(
       width: 88,
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: c.primaryLight,
+        color: bg,
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,
@@ -223,7 +246,7 @@ class _ScorePill extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: c.onPrimaryLight,
+          color: fg,
         ),
       ),
     );

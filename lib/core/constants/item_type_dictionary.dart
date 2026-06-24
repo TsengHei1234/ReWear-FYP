@@ -87,6 +87,9 @@ class ItemTypeDictionary {
     ItemTypeDef(storedValue: 'DRESS_SHIRT', displayLabel: 'Dress shirt', category: ItemCategory.top, defaultOccasions: [_w], allowedOccasions: [_w], defaultFormality: 4, conditionThreshold: 28),
     ItemTypeDef(storedValue: 'BLOUSE', displayLabel: 'Blouse', category: ItemCategory.top, defaultOccasions: [_c, _w], allowedOccasions: [_c, _w], defaultFormality: 3, conditionThreshold: 28),
     ItemTypeDef(storedValue: 'TOP_HOODIE', displayLabel: 'Hoodie / Sweatshirt as top', category: ItemCategory.top, defaultOccasions: [_c, _r], allowedOccasions: [_c, _r], defaultFormality: 2, conditionThreshold: 28),
+    ItemTypeDef(storedValue: 'SPORTS_BRA', displayLabel: 'Sports bra / Active bra', category: ItemCategory.top, defaultOccasions: [_a], allowedOccasions: [_a, _r], defaultFormality: 1, conditionThreshold: 28),
+    ItemTypeDef(storedValue: 'CAMISOLE', displayLabel: 'Camisole / Cami top', category: ItemCategory.top, defaultOccasions: [_c, _r], allowedOccasions: [_c, _r], defaultFormality: 2, conditionThreshold: 28),
+    ItemTypeDef(storedValue: 'CROP_TOP', displayLabel: 'Crop top', category: ItemCategory.top, defaultOccasions: [_c], allowedOccasions: [_c, _r], defaultFormality: 2, conditionThreshold: 28),
     ItemTypeDef(storedValue: 'OTHER_TOP', displayLabel: 'Other top', category: ItemCategory.top, defaultOccasions: [_c], allowedOccasions: [_c, _r, _a, _w], defaultFormality: 2, conditionThreshold: 28),
   ];
 
@@ -99,7 +102,8 @@ class ItemTypeDictionary {
     ItemTypeDef(storedValue: 'CHINOS', displayLabel: 'Chinos', category: ItemCategory.bottom, defaultOccasions: [_c, _w], allowedOccasions: [_c, _w], defaultFormality: 3, conditionThreshold: 58),
     ItemTypeDef(storedValue: 'CASUAL_LONG_PANTS', displayLabel: 'Casual long pants', category: ItemCategory.bottom, defaultOccasions: [_c], allowedOccasions: [_c, _w], defaultFormality: 3, conditionThreshold: 58),
     ItemTypeDef(storedValue: 'FORMAL_TROUSERS_SLACKS', displayLabel: 'Formal trousers / Slacks', category: ItemCategory.bottom, defaultOccasions: [_w], allowedOccasions: [_w], defaultFormality: 4, conditionThreshold: 58),
-    ItemTypeDef(storedValue: 'SKIRT', displayLabel: 'Skirt', category: ItemCategory.bottom, defaultOccasions: [_c], allowedOccasions: [_c, _w], defaultFormality: 2, conditionThreshold: 58),
+    ItemTypeDef(storedValue: 'CASUAL_SKIRT', displayLabel: 'Casual skirt', category: ItemCategory.bottom, defaultOccasions: [_c], allowedOccasions: [_c, _r], defaultFormality: 2, conditionThreshold: 58),
+    ItemTypeDef(storedValue: 'WORK_SKIRT', displayLabel: 'Work skirt', category: ItemCategory.bottom, defaultOccasions: [_w], allowedOccasions: [_w, _c], defaultFormality: 3, conditionThreshold: 58),
     ItemTypeDef(storedValue: 'DRESS_SKIRT', displayLabel: 'Dress skirt', category: ItemCategory.bottom, defaultOccasions: [_w], allowedOccasions: [_w], defaultFormality: 4, conditionThreshold: 58),
     ItemTypeDef(storedValue: 'LEGGINGS', displayLabel: 'Leggings', category: ItemCategory.bottom, defaultOccasions: [_a, _r], allowedOccasions: [_a, _r, _c], defaultFormality: 1, conditionThreshold: 58),
     ItemTypeDef(storedValue: 'OTHER_BOTTOM', displayLabel: 'Other bottom', category: ItemCategory.bottom, defaultOccasions: [_c], allowedOccasions: [_c, _r, _a, _w], defaultFormality: 2, conditionThreshold: 58),
@@ -131,6 +135,8 @@ class ItemTypeDictionary {
     ItemTypeDef(storedValue: 'SLIPPERS_FLIP_FLOPS', displayLabel: 'Slippers / Flip-flops', category: ItemCategory.footwear, defaultOccasions: [_r], allowedOccasions: [_r, _c], defaultFormality: 1, conditionThreshold: 25),
     ItemTypeDef(storedValue: 'CASUAL_BOOTS', displayLabel: 'Casual boots', category: ItemCategory.footwear, defaultOccasions: [_c], allowedOccasions: [_c, _w], defaultFormality: 3, conditionThreshold: 25),
     ItemTypeDef(storedValue: 'FORMAL_SHOES', displayLabel: 'Formal shoes', category: ItemCategory.footwear, defaultOccasions: [_w], allowedOccasions: [_w], defaultFormality: 4, conditionThreshold: 25),
+    ItemTypeDef(storedValue: 'BALLET_FLATS', displayLabel: 'Flats / Ballet flats', category: ItemCategory.footwear, defaultOccasions: [_c, _w], allowedOccasions: [_c, _w], defaultFormality: 3, conditionThreshold: 25),
+    ItemTypeDef(storedValue: 'HEELS', displayLabel: 'Heels', category: ItemCategory.footwear, defaultOccasions: [_w], allowedOccasions: [_w, _c], defaultFormality: 4, conditionThreshold: 25),
     ItemTypeDef(storedValue: 'OTHER_SHOES', displayLabel: 'Other shoes', category: ItemCategory.footwear, defaultOccasions: [_c], allowedOccasions: [_c, _w, _a, _r], defaultFormality: 2, conditionThreshold: 25),
   ];
 

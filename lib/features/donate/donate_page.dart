@@ -494,7 +494,7 @@ class _DonationCandidateCard extends ConsumerWidget {
         ItemCategory.top => 'Top',
         ItemCategory.bottom => 'Bottom',
         ItemCategory.outerwear => 'Outerwear',
-        ItemCategory.footwear => 'Footwear',
+        ItemCategory.footwear => 'Shoes',
         ItemCategory.others => 'Others',
       };
 

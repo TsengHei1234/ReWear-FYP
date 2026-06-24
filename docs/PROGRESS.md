@@ -616,6 +616,13 @@ These were authored/locked during Phase 7 (Donate + Insights) and are the source
 - **Skipped Often formula is LOCKED:** `skipCount / (wearCount + skipCount) > 0.50`. Uses
   lifetime `wearCount` (includes initial history). Do NOT add a noise-floor or change threshold.
 - **Overused threshold is LOCKED at 0.20** (wear_rate ≥ 0.20). Do not change.
+  **Phase 11 evidence floor (commit 6755909 "low-evidence Overused detection"):**
+  Overused now ALSO requires `wear_count >= 3` — the 0.20 threshold is unchanged,
+  the floor is an additional gate so one wear on a brand-new item (rate 1.0) is
+  NOT flagged Overused. Shared via `health_score.dart` `kOverusedMinWears = 3` +
+  `isOverusedRate(item, now)` (`wear_count >= 3 && itemWearRate >= 0.20`), used by
+  badges P3, daily-rotation "Overused" label, `computeWardrobeHealth` rotation
+  score, and insights overused list/count. See DECISIONS.md **M7** (Overused evidence floor).
 - **Kept Items page** has 6 category filter chips (All/Tops/Bottoms/Outerwear/Shoes/Others)
   via `FilterChipRow`. Filter is pure client-side — no provider/schema change.
 - **keptItemsPageProvider** (direct DB call) is the data source for Kept Items page, NOT

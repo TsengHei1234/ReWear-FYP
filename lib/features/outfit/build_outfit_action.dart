@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/enums.dart';
 import '../../core/widgets/confirm_sheet.dart';
 import '../../data/models/item.dart';
 import '../../providers/outfit_generator_provider.dart';
@@ -20,6 +21,19 @@ Future<void> openGeneratorWithPin(
   Item item, {
   bool navigate = true,
 }) async {
+  // OTHERS (accessories etc.) have no outfit layer — the Generator can't place
+  // them, so block them at the single shared entry point (all Build Outfit
+  // buttons route through here). Log Wear on OTHERS is unaffected.
+  if (item.category == ItemCategory.others) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This item cannot be used to build an outfit.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    return;
+  }
+
   final gen = ref.read(outfitGeneratorProvider);
   if (gen.hasGenerated) {
     final ok = await showConfirmSheet(

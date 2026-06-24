@@ -29,6 +29,7 @@ class _DonationHistoryPageState
     'Bottoms',
     'Outerwear',
     'Shoes',
+    'Others',
   ];
   static const _chipCategories = [
     null,
@@ -36,6 +37,7 @@ class _DonationHistoryPageState
     ItemCategory.bottom,
     ItemCategory.outerwear,
     ItemCategory.footwear,
+    ItemCategory.others,
   ];
   int _chipIndex = 0;
 

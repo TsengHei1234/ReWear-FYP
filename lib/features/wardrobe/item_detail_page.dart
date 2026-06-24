@@ -51,6 +51,10 @@ class ItemDetailPage extends ConsumerWidget {
     final badges = computeAllBadges(it, allItems);
     final isDonationFlagged = badges.contains(BadgeType.donationReview);
 
+    // Donated/deleted items are historical records → read-only. They may be
+    // opened (e.g. from Donation History) but expose no active wardrobe actions.
+    final readOnly = !it.status.isVisibleInWardrobe;
+
     return Scaffold(
       backgroundColor: c.background,
       body: RefreshIndicator(
@@ -85,33 +89,40 @@ class ItemDetailPage extends ConsumerWidget {
                         onTap: () => context.pop(),
                       ),
                       const Spacer(),
-                      _circleButton(
-                        icon: it.isFavorite
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        iconColor: it.isFavorite
-                            ? AppColors.favouriteStar
-                            : c.textSecondary,
-                        bg: c.surface,
-                        onTap: () => ref.read(wardrobeProvider.notifier).editItem(
-                              item: it.copyWith(isFavorite: !it.isFavorite),
-                            ),
-                      ),
-                      const SizedBox(width: 8),
-                      _circleButton(
-                        icon: Icons.edit_outlined,
-                        iconColor: c.textPrimary,
-                        bg: c.surface,
-                        onTap: () =>
-                            context.push(Routes.editItem, extra: it),
-                      ),
-                      const SizedBox(width: 8),
-                      _circleButton(
-                        icon: Icons.delete_outline,
-                        iconColor: AppColors.danger,
-                        bg: c.surface,
-                        onTap: () => _confirmDelete(context, ref, it),
-                      ),
+                      // Read-only (donated/deleted): hide favourite, edit and
+                      // delete — only Back remains. Prevents editing history and
+                      // a DONATED→DELETED soft-delete that would drop the item
+                      // from Donation History.
+                      if (!readOnly) ...[
+                        _circleButton(
+                          icon: it.isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          iconColor: it.isFavorite
+                              ? AppColors.favouriteStar
+                              : c.textSecondary,
+                          bg: c.surface,
+                          onTap: () =>
+                              ref.read(wardrobeProvider.notifier).editItem(
+                                    item:
+                                        it.copyWith(isFavorite: !it.isFavorite),
+                                  ),
+                        ),
+                        const SizedBox(width: 8),
+                        _circleButton(
+                          icon: Icons.edit_outlined,
+                          iconColor: c.textPrimary,
+                          bg: c.surface,
+                          onTap: () => context.push(Routes.editItem, extra: it),
+                        ),
+                        const SizedBox(width: 8),
+                        _circleButton(
+                          icon: Icons.delete_outline,
+                          iconColor: AppColors.danger,
+                          bg: c.surface,
+                          onTap: () => _confirmDelete(context, ref, it),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -179,7 +190,8 @@ class ItemDetailPage extends ConsumerWidget {
                   if (it.status != ItemStatus.donated &&
                       it.status != ItemStatus.deleted) ...[
                     const SizedBox(height: 12),
-                    _buildConsiderDonating(context, c, flagged: isDonationFlagged),
+                    _buildConsiderDonating(context, ref, it, c,
+                        flagged: isDonationFlagged),
                   ],
 
                   // Recent Wear History
@@ -508,6 +520,9 @@ class ItemDetailPage extends ConsumerWidget {
                 option('Mark as Lent Out', Icons.people_outline_rounded,
                     AppColors.amberText, ItemStatus.lent,
                     'Item marked as lent out.'),
+                option('Mark as Stored', Icons.inventory_2_outlined,
+                    c.textSecondary, ItemStatus.stored,
+                    'Item marked as stored.'),
               ] else ...[
                 option('Return to Wardrobe', Icons.checkroom_outlined,
                     c.primary, ItemStatus.inWardrobe,
@@ -624,18 +639,14 @@ class ItemDetailPage extends ConsumerWidget {
   /// Donate entry point — always shown so any item can be donated. When the
   /// item is D-rule flagged it reads "Consider Donating"; otherwise "Donate
   /// This Item". (Donate page lands in Phase 7.)
-  Widget _buildConsiderDonating(BuildContext context, AppColorsTheme c,
+  Widget _buildConsiderDonating(
+          BuildContext context, WidgetRef ref, Item it, AppColorsTheme c,
           {required bool flagged}) =>
       SizedBox(
         width: double.infinity,
         height: 44,
         child: OutlinedButton.icon(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Donate page arrives in a later update')),
-            );
-          },
+          onPressed: () => _donate(context, ref, it),
           icon: const Icon(Icons.volunteer_activism_outlined,
               size: 18, color: AppColors.danger),
           label: Text(flagged ? 'Consider Donating' : 'Donate This Item',
@@ -805,6 +816,34 @@ class ItemDetailPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // ── Donate ──────────────────────────────────────────────────────────────────
+
+  /// Donate the current (active) item. Reuses the Donate page's confirm sheet +
+  /// the canonical [WardrobeNotifier.confirmDonation] path, then pops so the user
+  /// is never left on a stale active Item Detail of a now-donated item.
+  Future<void> _donate(BuildContext context, WidgetRef ref, Item it) async {
+    final ok = await showConfirmSheet(
+      context,
+      icon: Icons.favorite_border_rounded,
+      title: 'Donate ${it.name}?',
+      message:
+          'This will mark the item as donated and remove it from your wardrobe.',
+      confirmLabel: 'Donate',
+      isDestructive: true,
+    );
+    if (!ok || !context.mounted) return;
+    bool succeeded = false;
+    await runMutation(
+      context,
+      action: () async {
+        await ref.read(wardrobeProvider.notifier).confirmDonation(it.id);
+        succeeded = true;
+      },
+      successMessage: '${it.name} marked as donated',
+    );
+    if (context.mounted && succeeded) context.pop();
   }
 
   // ── Delete confirmation ─────────────────────────────────────────────────────
