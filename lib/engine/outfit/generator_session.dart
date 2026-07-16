@@ -189,10 +189,15 @@ class GeneratorSession {
   }
 
   _BuildResult _buildRanked(List<Item> wardrobe, GeneratorConfig cfg) {
-    // Step 0 — pinned safety (F3/F4). Auto-unpin if unusable.
+    // Step 0 — pinned safety (F3/F4/F5). Auto-unpin if unusable, or already
+    // worn today: F5 excludes a worn-today item from the normal pool, and the
+    // pinned slot returns the pin directly (bypassing that pool), so it must be
+    // dropped here too to stay consistent with the worn-today gate.
     var pinned = cfg.pinnedItem;
     if (pinned != null &&
-        (pinned.condition == 1 || pinned.status != ItemStatus.inWardrobe)) {
+        (pinned.condition == 1 ||
+            pinned.status != ItemStatus.inWardrobe ||
+            !passesWornToday(pinned, cfg.now))) {
       pinned = null;
     }
 

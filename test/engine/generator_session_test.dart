@@ -328,6 +328,33 @@ void main() {
       }
     });
 
+    test('worn-today pinned item is auto-unpinned (F5), generation proceeds', () {
+      final wornTodayPin = makeItem(
+        id: 'pin',
+        category: ItemCategory.top,
+        occasionTags: const [Occasion.casual],
+        condition: 4,
+        isNewItem: false,
+        wearCount: 3,
+        lastWornDate: now, // worn today → F5 excludes it
+        dateAdded: now.subtract(const Duration(days: 100)),
+      );
+      final wardrobe = [
+        wornTodayPin,
+        top('t1', daysAgo: 30),
+        top('t2', daysAgo: 20),
+        bottom('b1', daysAgo: 30),
+        bottom('b2', daysAgo: 20),
+      ];
+      final result =
+          GeneratorSession().generate(wardrobe, cfg(pinned: wornTodayPin));
+      expect(result.ok, isTrue);
+      // pin was worn today → F5 auto-unpins it; it never appears in any outfit.
+      for (final o in result.outfits) {
+        expect(o.outfit.top.id, isNot('pin'));
+      }
+    });
+
     test('pinned formality pre-filter returns specific message', () {
       final pinned = top('pin', formality: 5);
       final wardrobe = [

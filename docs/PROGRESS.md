@@ -566,12 +566,95 @@ Claude Code via the `supabase` MCP server (OAuth, same account).
   **Add 10 — Full offline overlay: DEFERRED to Phase 11.** See P9-E in DECISIONS.md.
   - **244 tests pass; `flutter analyze` clean.**
 
-- [ ] **Phase 10 — Polish Outfit Generator**
-- [ ] **Phase 11 — Supabase Realtime + offline overlay**
+- [x] **Phase 10 — Polish Outfit Generator** ✅ (+ Phase 10.5 type-filter branch). P1D tier reorder, Start Over UX, FRS badge sort, missing-layer collect-all, formality-default tuning. See memory `project_phase10_decisions` / `project_branch_structure`.
+- [x] **Phase 11 — Full Formula Calculation Testing & Fixes** ✅ (2026-06-24)
+  Branch `Phase-11-Full-Formula-Calculation-Testing-and-Fixes`. Calculation/data
+  correctness verified end-to-end through a 7-stage protocol; **306 tests pass,
+  `flutter analyze` clean** (was 244 at Phase 9 → +62 calc/golden/mutation tests).
+  **Stages (all ✅):**
+  1. **Context audit** — reconciled v7 MD vs DECISIONS/memory; established override order.
+  2. **Formula/code trace** — traced every S1–S6 / badge / donation / insights / daily-rotation / condition path; all match latest expected behaviour.
+  3. **Add Item mapping** — A1–A7 history mapping + bucket tables + condition_next_drop verified.
+  4. **Golden formula tests** — added the missing badge / AUTO-drop / boundary / skip-provider coverage.
+  5. **Controlled SQL + phone cross-page** — `CALC_TEST_` 17-item matrix; badges/donation/insights/daily-rotation consistent across pages.
+  6. **Mutation testing** — `CALC_MUT_` rows; user actions → DB field changes verified (SQL before/after = source of truth, phone UI = confirmation).
+  7. **Final pass/fail matrix** — all cases pass.
+  **Bugs fixed this phase (all TDD, tests added):**
+  - **Daily Rotation `wearStatusLabel`** now uses canonical `itemWearRate()` (was a private
+    `wear_count/daysSinceAdded` that ignored `initialUsageAgeDays`). Display-only; pre-owned
+    items no longer mislabelled Overused. (`daily_rotation_display.dart`.)
+  - **Edit Item preserves `condition_next_drop`** on unrelated edits via new pure helper
+    `resolveConditionNextDropOnEdit()` (only recompute on condition/type/mode change; else
+    preserve). Fixes the 28→38 drift. (`condition_engine.dart`, `add_edit_item_page.dart`.)
+  - **AUTO condition drop-to-1 clears `condition_next_drop`** — added `clearConditionNextDrop`
+    flag to `Item.copyWith` (copyWith couldn't null the field); `checkAutoConditionDrop` uses it
+    at the floor. (`item.dart`, `condition_engine.dart`.)
+  - **Overused evidence floor (M7):** `itemWearRate >= 0.20 AND wear_count >= 3` via shared
+    `isOverusedRate()`; one wear on a new item is no longer Overused. 0.20 threshold + `itemWearRate`
+    + WFSS unchanged. Routed through badge P3 / `isOverused` / Health-Score count / insights count /
+    `wearStatusLabel`. (`health_score.dart` + 3 consumers.)
+  - **"Most worn" badge label → "Top Worn"** (M5): tie-included top-10% wear-count tier logic
+    **unchanged**; label-only rename so it doesn't imply exact top-N. Wardrobe **sort** "Most worn"
+    is a separate feature, kept. (`badge_chip.dart`.)
+  **Key decisions (see DECISIONS M5/M7 + below):** `itemWearRate`/WFSS not changed; Overused 0.20
+  threshold stays locked (only the `wear_count >= 3` floor added); Daily Rotation top-5 visibility
+  is an expected display limit, not a failure; **direct SQL changes require an app refresh/reopen/
+  rebuild before phone UI checks** (a stale APK once reproduced an already-fixed bug — the working-tree
+  fix only reaches the device after rebuild).
+  **Stage 6 mutation results:** Log Wear ✅ · Daily-Rotation Skip ✅ (via `CALC_MUT_SkipVisible`
+  workaround for the top-5 limit) · Keep / Undo Keep ✅ · Donate / Delete / Mark-Laundry /
+  Laundry-Return ✅ · Edit-unrelated / Edit-type ✅ (after rebuild/refresh) · AUTO drop & drop-to-1 ✅.
+- [x] **Phase 11.5 — Full Feature / App Testing (UI & lifecycle)** ✅ (2026-06-24)
+  Compressed, manually-verified pass over every main screen on device (calc correctness already
+  signed off in Phase 11). **306 tests pass, `flutter analyze` clean.** Full locked decisions in
+  `docs/DECISIONS.md` "Feature-testing (Phase 11.5)".
+  **Stages — all PASS:** Home · Wardrobe · Add/Edit/Item Detail · Outfit Item Flow (Daily Rotation +
+  Outfit History) · Donate · Insights · Settings/Profile/Notifications/Laundry/Status. A
+  **Decision + Code alignment audit** ran before the Settings stage and passed (it caught + corrected
+  one earlier mis-call — see Overused docs below). Outfit-Generator combination logic was excluded
+  from deep testing.
+  **Fixes landed (UI / lifecycle / dictionary only — NO formula/scoring/schema change):**
+  - **Item Detail lifecycle:** donated/deleted items are now **read-only** (`readOnly =
+    !status.isVisibleInWardrobe` hides Favourite/Edit/Delete; Back only). The **Donate** button runs
+    the real `confirmDonation` flow then pops (replaced the "Donate page arrives in a later update"
+    stub). **Delete & Donate are confirmation-sheet-only — NO Undo snackbar** (a trial Delete-Undo was
+    added then removed; do not re-add). (`item_detail_page.dart`.)
+  - **Stored status setter:** added "Mark as Stored" to the Item Detail status sheet — STORED is now
+    user-settable (was enum/filter/visual only). Visible-but-unavailable; excluded from
+    Home/Daily-Rotation/Generator (F4); returns via "Return to Wardrobe". (`item_detail_page.dart`.)
+  - **OTHERS Build Outfit blocked centrally** in `openGeneratorWithPin` (snackbar "This item cannot
+    be used to build an outfit"); all Build Outfit buttons route through it. OTHERS can still **Log
+    Wear**; OTHERS **AUTO condition threshold (25) is valid and kept**. (`build_outfit_action.dart`.)
+  - **Daily Rotation score badge** → theme-aware **threshold colours** (≥80 green / 60–79 amber /
+    <60 red, dark-mode friendly), display-only. **Outfit Generator badge reverted** to the shared
+    `AppColors.scoreBandColours` (net-zero). (`daily_rotation_card.dart`.)
+  - **Donate / Insights polish:** added the **"Others"** category chip to Donation History + Insights
+    View All; candidate-card footwear label **"Footwear" → "Shoes"**. (`donate_page.dart`,
+    `donation_history_page.dart`, `view_all_page.dart`.)
+  - **Wardrobe "Recently added" sort** (added earlier; already committed in 6755909).
+  - **Overused docs/comments corrected** to the M7 evidence floor (`wear_count >= 3`) after a Stage-7
+    report wrongly flagged the floor as stale — the code was always correct. (`insights_providers.dart`
+    + Overused note above.)
+  **Type dictionary expansion (app-code constants — NO DB/schema change):** +TOP Sports bra/Active bra,
+  Camisole/Cami top, Crop top; +FOOTWEAR Flats/Ballet flats, Heels; BOTTOM **removed generic `SKIRT`**,
+  replaced by **`CASUAL_SKIRT` + `WORK_SKIRT`** (existing `DRESS_SKIRT` kept). New types auto-appear in
+  the Add/Edit dropdown. (`item_type_dictionary.dart`.)
+  ⚠️ **DB MIGRATION (manual, required):** any live `items` row with `type = 'SKIRT'` must be migrated to
+  `CASUAL_SKIRT` / `WORK_SKIRT` / `DRESS_SKIRT` **before editing** it — the dropdown no longer contains
+  `SKIRT`, so a legacy value would break the type dropdown. No code/test references the `SKIRT` stored
+  value (only the frozen v7 MD, left untouched).
+
+- [ ] **Phase 12 — Supabase Realtime + offline overlay** (was the old "Phase 11" scope)
 
 ## How to resume (next action)
 
-**NEXT: Phase 10 — Polish Outfit Generator.** Phase 9 complete. **244 tests pass, `flutter analyze` clean.**
+**NEXT: Phase 12 — Supabase Realtime + offline overlay.** Phases 0–11 + the Phase 11.5
+full feature/app-testing pass are complete (all main screens PASS).
+**306 tests pass, `flutter analyze` clean.** ⚠️ The Phase 11 + 11.5 changes are working-tree
+changes — rebuild/reinstall the APK so the device runs them (a hot reopen alone keeps the old binary).
+SKIRT migration: **N/A — confirmed no `type='SKIRT'` rows exist in the DB (2026-06-24).**
+(Generic SKIRT was removed from the dictionary; the migration caution remains recorded in the
+Phase 11.5 block + DECISIONS for history, but no live data needs it.)
 
 Phase 9 manual testing confirmed (2026-06-19):
 - ✅ Home cold start: spinner shown (not "Add items") while wardrobe loads
@@ -593,7 +676,7 @@ Phase 8 notification manual testing — all confirmed working (2026-06-15):
 and a new feature idea at session start. Read this file, DECISIONS.md, and
 `docs/features/outfit_generator_tab_contract.md` before doing anything.
 
-**Phase 11 goal (after Phase 10):**
+**Phase 12 goal (after Phase 11 calc testing):**
 - Supabase Realtime subscription for one key live count (TBD — user to specify)
 - Full offline overlay (Add 10, deferred from Phase 9) — discuss with mentor first (see P9-E)
 - Data freshness on app resume (S2 Option A or B, see DECISIONS.md)
